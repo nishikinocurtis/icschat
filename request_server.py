@@ -1,12 +1,15 @@
 import socket
 import json
+import message as ms
 
 
 class MySocketClient:
 
-    def __init__(self, args):
+    def __init__(self, args=None):
         self.CHAT_PORT = 1112
-        self.CHAT_IP = socket.gethostbyname(socket.gethostname()) if args.d is None else args.d
+        self.CHAT_IP = socket.gethostbyname(socket.gethostname())
+        if args is not None:
+            self.CHAT_IP = self.CHAT_IP if args.p is None else args.p
         self.SERVER = (self.CHAT_IP, self.CHAT_PORT)
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -14,6 +17,7 @@ class MySocketClient:
         self.SIZE_SPEC = 5
 
         self.CHAT_WAIT = 0.2
+
 
     def recv_request(self):
         size = ''
@@ -33,13 +37,14 @@ class MySocketClient:
                 break
             msg += text
         # print ('received '+message)
-        return json.load(msg)
+        msg = json.load(msg)
+        return ms.Message(msg["from"], msg["to"], msg["head"], msg["content"])
 
     def init_connection(self):
         self.socket.connect(self.SERVER)
 
-    def send_request(self, from_name=None, to_name=None, head=None, content=None):
-        content = json.dumps({"from": from_name, "to": to_name, "head": head, "content": content})
+    def send_request(self, msg=ms.Message()):
+        content = json.dumps({"from": msg.from_name, "to": msg.to_name, "head": msg.action_type, "content": msg.content})
         content = f"%05d" % (len(content)) + str(content)  # SIZE_SPEC
         content = content.encode()
         total_sent = 0
@@ -49,6 +54,9 @@ class MySocketClient:
                 print('server disconnected')
                 break
             total_sent += sent
+
+
+
 
 
 
