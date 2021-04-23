@@ -3,6 +3,11 @@ import threading
 import tkinter as tk
 import encrypter as enc
 import client_state_machine as csm
+import socket
+import select
+import sys
+import request_server as rs
+import message as ms
 
 
 class Client:
@@ -10,9 +15,11 @@ class Client:
         self.args = args
         self.name = name
         self.root_window = root
-        self.state = csm.clientState()
+        self.state = csm.ClientState()
         root.title("ICS Chat")
         root.geometry("768x520+16+9")
+
+        self.socket_machine = rs.MySocketClient(self.args)
 
         # log_in_window initialize
         self.login_frame = tk.Frame(self.root_window)
@@ -40,8 +47,8 @@ class Client:
         self.poem_button = tk.Button(self.tool_frame, text="Poem", command=self.poem_request)
 
         self.chat_back_button.grid(row=0, column=0, sticky=tk.W)
-        self.time_button.grid(row=0, column=1,sticky=tk.W)
-        self.poem_button.grid(row=0, column=2,sticky=tk.W)
+        self.time_button.grid(row=0, column=1, sticky=tk.W)
+        self.poem_button.grid(row=0, column=2, sticky=tk.W)
 
         self.content_frame = tk.Frame(self.root_window)
 
@@ -61,7 +68,7 @@ class Client:
         self.add_group_button.grid(row=1, column=1, sticky=tk.W)
 
         self.messages_frame = tk.LabelFrame(self.content_frame, text="Messages", height=500)
-        self.disconnect_button = tk.Button(self.messages_frame, text="Disconnect from this User/Group", width = 50)
+        self.disconnect_button = tk.Button(self.messages_frame, text="Disconnect from this User/Group", width=50)
         self.disconnect_button.grid(row=0, column=0)
 
         self.messages_scroll = tk.Scrollbar(self.messages_frame, orient=tk.VERTICAL)
@@ -78,23 +85,37 @@ class Client:
         self.message_entry.grid(row=2, column=0)
         self.send_button.grid(row=2, column=1)
 
-        self.relations_frame.grid(row=0, column=0, sticky=tk.N+tk.S)
-        self.messages_frame.grid(row=0, column=1, sticky=tk.N+tk.S)
+        self.relations_frame.grid(row=0, column=0, sticky=tk.N + tk.S)
+        self.messages_frame.grid(row=0, column=1, sticky=tk.N + tk.S)
 
         # remember to bind change in relations list.
 
-    def run_loop(self):
-        pass
+    def proc_package(self, msg):
+        if msg.action_type == "notification":
+            self.notification(self.root_window, msg.content)
+        elif msg.action_type == "change":
+            # update relation listbox
+            pass
+        elif msg.action_type == "exchange":
+            # update record and msg list
+            pass
+
+    def scan_loop(self):
+        while self.state.get() == csm.USER_ONLINE:
+            msg = self.recv_package()
+            self.proc_package(msg)
 
     def send_package(self, msg):
-        pass
+        self.socket_machine.send_request(msg.from_name, msg.to_name, msg.action_type, msg.content)
 
     def recv_package(self):
-        pass
+        msg = self.socket_machine.recv_request()
+        msg = ms.Message(from_name=msg["from"], action_type=msg["head"], content=msg["content"])
+        return msg
 
     def start(self):
         self.log_in_window()
-        # establish recv thread
+        self.socket_machine.init_connection()
         self.root_window.mainloop()
 
     def log_in_window(self):
@@ -142,8 +163,11 @@ class Client:
         register_button.pack()
         register_back_button.pack()
 
-    def start_thread(self):
-        pass
+    @staticmethod
+    def start_thread(loop_func):
+        new_thread = threading.Thread(target=loop_func)
+        new_thread.daemon = True
+        new_thread.start()
 
     @staticmethod
     def notification(root, content):
@@ -164,6 +188,7 @@ class Client:
             self.state.set(csm.USER_ONLINE)
             self.login_window_destroy()
             self.chat_window()
+            self.start_thread(self.scan_loop)
         else:
             if info == "wrong_password":
                 self.password_entry.delete(0, 'end')
@@ -183,7 +208,6 @@ class Client:
         else:
             pass
 
-
     @staticmethod
     def login_request_server(username, password):
         if username == "curtis" and password == "123":  # to be modified, socket success
@@ -197,6 +221,8 @@ class Client:
 
     @staticmethod
     def register_request_server(username, password):
+        msg = ms.Message(username, "system", "register", password)
+        # let encryptor generates new public key on server
         return True, "success"
 
     def login_window_destroy(self):
@@ -215,26 +241,31 @@ class Client:
         self.content_frame.pack(pady=10, padx=10, anchor='s')
 
     def logout_request(self):
-        # do something
+        # do something save record
+        self.state.set(csm.USER_OFFLINE)
         self.root_window.quit()
 
     def server_time_request(self):
-        result = "Server Time: 05.01.2021,08:00:00 CST"
+        msg = ms.Message(str(self.username.get()), "system", "time", "")
+        self.socket_machine.send_request(msg.from_name, msg.to_name, msg.action_type, msg.content)
+        # result = "Server Time: 05.01.2021,08:00:00 CST"
         # result = send pack to server type: time
-        self.notification(self.root_window, result)
+        # self.notification(self.root_window, result)
 
     def poem_request(self):
-        result = "Sonnet Chapter 3"
+        msg = ms.Message(str(self.username.get()), "system", "poem", "")
+        self.socket_machine.send_request(msg.from_name, msg.to_name, msg.action_type, msg.content)
+        # result = "Sonnet Chapter 3"
         # result = send pack to server type: poem
-        self.notification(self.root_window, result)
+        # self.notification(self.root_window, result)
+
+    def add_friend(self):  # raise new window
+        pass
+
+    def add_group(self):  # raise new window
+        pass
 
     def send_request(self):
-        pass
-
-    def add_friend(self):
-        pass
-
-    def add_group(self):
         pass
 
 

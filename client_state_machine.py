@@ -1,7 +1,8 @@
 USER_OFFLINE = 0
 USER_ONLINE = 1
 
-class clientState:
+
+class ClientState:
     def __init__(self):
         self.state_value = USER_OFFLINE
 
