@@ -8,15 +8,16 @@ class Message:
                    "add_group",
                    "logout",
                    "notification"
-                   "change",
+                   "change",  # protocol: texts
                    "friend_respond",
                    "group_respond",
                    "negotiate",
                    "key",
                    "communication",
                    "register_feedback",
-                   "login_feedback"
-                   "disconnect"]
+                   "login_feedback",
+                   "disconnect",
+                   "register_key"]
 
     def __init__(self, from_name="", to_name="", action_type="", content=""):
         self.__from_name = ""

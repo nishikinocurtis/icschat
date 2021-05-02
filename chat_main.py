@@ -9,6 +9,7 @@ import sys
 import request_server as rs
 import message as ms
 import pickle
+import time
 
 
 class Client:
@@ -21,6 +22,7 @@ class Client:
         root.geometry("600x520+16+9")
 
         self.socket_machine = rs.MySocketClient(self.args)
+        self.encrypt_machine = enc.ClientEncryptor()
 
         # log_in_window initialize
         self.login_frame = tk.Frame(self.root_window)
@@ -42,6 +44,7 @@ class Client:
         self.login_blank = tk.Label(self.login_frame, text="")
 
         # chat window initialize
+
         self.tool_frame = tk.Frame(self.root_window)
         self.chat_back_button = tk.Button(self.tool_frame, text="Quit", command=self.logout_request, width=20)
         self.time_button = tk.Button(self.tool_frame, text="Time", command=self.server_time_request, width=10)
@@ -60,7 +63,9 @@ class Client:
         self.relations_scroll = tk.Scrollbar(self.relations_frame, orient=tk.VERTICAL)
         self.relations_scroll.grid(row=0, column=1, sticky=tk.N + tk.S)
 
-        self.relations_list = tk.Listbox(self.relations_frame, selectmode=tk.SINGLE,
+        self.relation_string = tk.StringVar()  # Protocol: "(Group)GroupName FriendName"
+        self.relation_origin = []
+        self.relations_list = tk.Listbox(self.relations_frame, selectmode=tk.SINGLE, listvariable=self.relation_string,
                                          yscrollcommand=self.relations_scroll.set, height=21, width=25)
         self.relations_scroll.config(command=self.relations_list.yview)
         self.relations_list.grid(row=0, column=0, sticky=tk.N + tk.S + tk.E + tk.W)
@@ -76,8 +81,10 @@ class Client:
         self.messages_scroll = tk.Scrollbar(self.messages_frame, orient=tk.VERTICAL)
         self.messages_scroll.grid(row=1, column=2, sticky=tk.N + tk.S)
 
+        self.message_string = tk.StringVar()  # Protocol: "Username yyyy.mm.dd,hh:mm \n texts"
+        self.message_origin = []
         self.messages_list = tk.Listbox(self.messages_frame, height=20, yscrollcommand=self.messages_scroll.set,
-                                        width=50)
+                                        listvariable=self.message_string, width=50, activestyle='none')
         self.messages_scroll.config(command=self.messages_list.yview)
         self.messages_list.grid(row=1, column=0, columnspan=2, sticky=tk.N + tk.S + tk.E + tk.W)
 
@@ -207,13 +214,14 @@ class Client:
         ok_button.pack(pady=10, padx=10, anchor='s')
 
     def login_request(self):
-        print(str(self.username.get()))
-        print(str(self.password.get()))
+        us = str(self.username.get())
+        pwd = str(self.password.get())
 
         login_result, info = self.login_request_server(str(self.username.get()), str(self.password.get()))
 
         if login_result:
             self.state.set(csm.USER_ONLINE)
+            self.encrypt_machine.start(us)
             self.login_window_destroy()
             self.chat_window()
             self.start_thread(self.scan_loop)
@@ -232,27 +240,39 @@ class Client:
         print(username, password)
         register_result, info = self.register_request_server(username, password)
         if register_result:
+            self.encrypt_machine.start(username)
+            msg = ms.Message(username, "system", "register_key", self.encrypt_machine.rsa1024_key.publickey.exportKey())
+            self.encrypt_machine.export_key()
+            self.socket_machine.send_request(msg)
             self.notification(self.root_window, "Registration Succeed, Please Log In.")
         else:
-            pass
+            self.notification(self.root_window, "Duplicate username. Please use another one.")
 
-    @staticmethod
-    def login_request_server(username, password):
-        if username == "curtis" and password == "123":  # to be modified, socket success
+    def login_request_server(self, username, password):
+        return True, "success"
+        msg = ms.Message(username, "system", "login", password)
+        self.socket_machine.send_request(msg)
+        feedback_msg = self.socket_machine.recv_request()
+        if feedback_msg.content == "success":
             return True, "success"
-        elif username == "curtis" and password != "123":  # to be modified, socket password wrong
+        elif feedback_msg.content == "wrong":
             return False, "wrong_password"
-        elif username != "curtis":  # to be modified, socked user not exist
+        elif feedback_msg.content == "not_exist":
             return False, "not_exist"
+
+    def register_request_server(self, username, password):
+        msg = ms.Message(username, "system", "register", password)
+        self.socket_machine.send_request(msg)
+        feedback_msg = self.socket_machine.recv_request(msg)
+        if feedback_msg.content == "success":
+            return True, "success"
+        elif feedback_msg.content == "duplicate":
+            return False, "duplicate"
         else:
             pass
-
-    @staticmethod
-    def register_request_server(username, password):
-        msg = ms.Message(username, "system", "register", password)
+        # check existing username
         # let encryptor generates new public key on server
         # receive a package
-        return True, "success"
 
     def login_window_destroy(self):
         self.welcome_label.destroy()
@@ -268,6 +288,20 @@ class Client:
     def chat_window(self):
         self.tool_frame.pack(pady=10, padx=10, anchor='nw')
         self.content_frame.pack(pady=10, padx=10, anchor='s')
+
+    def refresh_relation(self, new_relation_list):
+        self.relation_origin = new_relation_list
+        new_string = sum([line + " " for line in self.relation_origin])
+        self.relation_string.set(new_string)
+
+    def update_message(self, new_msg: str):  # a Message of change action
+        self.message_origin.append(new_msg)
+        self.messages_list.insert(tk.END, new_msg)
+
+    def refresh_message(self, new_msg_list):
+        self.message_string.set("")
+        for msg in new_msg_list:
+            self.messages_list.insert(tk.END, msg)
 
     def offline_quit(self):
         # socket disconnect
@@ -339,9 +373,26 @@ class Client:
     def request_group_real(self):
         pass
 
+    @staticmethod
+    def window_message_generator(username, content):
+        ctime = time.strftime('%d.%m.%y,%H:%M', time.localtime())
+        return username + " " + ctime + " " + content
+
     def broadcast(self):
         current_content = self.message.get()
-        self.message_entry.delete(0, 'end')
+        if len(self.relation_origin) == 0:
+            self.notification(self.root_window, "You have no friend or group now.")
+            current_content = "To myself: " + Client.window_message_generator(self.username.get(), current_content)
+            self.message_entry.delete(0, 'end')
+            self.update_message(current_content)
+            return
+        else:
+            self.message_entry.delete(0, 'end')
+            selected = self.relations_list.curselection()[0]
+            self.update_message(Client.window_message_generator(self.username.get(), current_content))
+            current_content = self.encrypt_machine.aes_encrypt(current_content)
+            msg = ms.Message(from_name=self.username.get(), to_name=self.relation_origin[selected], action_type="change", content=current_content)
+            self.socket_machine.send_request(msg)
         # current_content enter file.
         # fetch current users
         #   encrypt by my AES128
