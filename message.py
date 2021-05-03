@@ -1,23 +1,23 @@
 class Message:
-    action_list = ["login",
-                   "register",
-                   "exchange",
-                   "time",
-                   "poem",
-                   "add_friend",
-                   "add_group",
-                   "logout",
-                   "notification"
-                   "change",  # protocol: texts
-                   "friend_respond",
-                   "group_respond",
-                   "negotiate",
-                   "key",
+    action_list = ["login",  # client login
+                   "register",  # client register
+                   "exchange",  # protocol: texts, client send message or recv message
+                   "time",  # client request time
+                   "poem",  # client request poem
+                   "add_friend",  # client request new friend
+                   "add_group",  # client request new group
+                   "logout",  # client request logout
+                   "notification"  # server send notification
+                   "change",  # server recv friend request
+                   "friend_respond",  # client reply to request, server feedback
+                   "group_respond",  # server feedback
+                   "negotiate",  # server send negotiate information to group members
+                   "key",  # previous offline members send their keys to me
                    "communication",
                    "register_feedback",
                    "login_feedback",
                    "disconnect",
-                   "register_key"]
+                   "register_key"]  # register generating key
 
     def __init__(self, from_name="", to_name="", action_type="", content=""):
         self.__from_name = ""

@@ -8,12 +8,12 @@ import select
 import sys
 import request_server as rs
 import message as ms
-import pickle
+import indexer as idx
 import time
 
 
 class Client:
-    def __init__(self, args, name, root):
+    def __init__(self, name, root, args):
         self.args = args
         self.name = name
         self.root_window = root
@@ -21,6 +21,7 @@ class Client:
         root.title("ICS Chat")
         root.geometry("600x520+16+9")
 
+        self.ms_indexer = idx.Indexer()
         self.socket_machine = rs.MySocketClient(self.args)
         self.encrypt_machine = enc.ClientEncryptor()
 
@@ -106,11 +107,25 @@ class Client:
             # negotiate and save sender's aes128 key
             # send my aes128 key "respond pack"
             # update relation listbox
-            pass
+            keys = msg.content.split(b"_")
+            from_rsa_public_key = keys[0]
+            encrypted_aes_key = keys[1]
+            signature = keys[2]
+            from_rsa_public_key = enc.ClientEncryptor.any_rsa_instance(from_rsa_public_key)
+            signature = (signature, None)
+            self.encrypt_machine.negotiate_aes(msg.from_name, from_rsa_public_key, encrypted_aes_key, signature)
+            encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack(from_rsa_public_key)
+            attachment = encrypted_aes_key + b"_" + signature[0]
+            new_msg = ms.Message(self.username.get(), msg.from_name, "friend_respond", attachment)
+            self.socket_machine.send_request(new_msg)
         elif msg.action_type == "exchange":
             # decrypt with sender's aes128 key, when in group, the to_name attribute is group_name
             # update record and msg list
-            pass
+            actual_message = enc.aes_encrypt(msg.content, self.encrypt_machine.keyring[msg.from_name])
+            display_message = Client.window_message_generator(msg.from_name, actual_message)
+            self.ms_indexer.add_new(msg.from_name, display_message)
+            if msg.from_name == self.relation_origin[self.relations_list.curselection()[0]]:
+                self.update_message(display_message)
         elif msg.action_type == "friend_respond":
             # negotiate and save sender's aes128 key
             # update relation listbox
@@ -134,6 +149,11 @@ class Client:
         elif msg.action_type == "disconnect":
             # update relation listbox
             pass
+
+    def refresh_event(self):
+        current_relation = self.relation_origin[self.relations_list.curselection()[0]]
+        self.message_origin = self.ms_indexer.messages[current_relation]
+        self.refresh_message(self.message_origin)
 
     def scan_loop(self):
         while self.state.get() == csm.USER_ONLINE:
@@ -217,12 +237,13 @@ class Client:
         us = str(self.username.get())
         pwd = str(self.password.get())
 
-        login_result, info = self.login_request_server(str(self.username.get()), str(self.password.get()))
+        login_result, info = self.login_request_server(us, pwd)
 
         if login_result:
             self.state.set(csm.USER_ONLINE)
             self.encrypt_machine.start(us)
             self.login_window_destroy()
+            self.ms_indexer.load_message(us)
             self.chat_window()
             self.start_thread(self.scan_loop)
         else:
@@ -250,6 +271,7 @@ class Client:
 
     def login_request_server(self, username, password):
         return True, "success"
+        # debug using
         msg = ms.Message(username, "system", "login", password)
         self.socket_machine.send_request(msg)
         feedback_msg = self.socket_machine.recv_request()
@@ -305,9 +327,12 @@ class Client:
 
     def offline_quit(self):
         # socket disconnect
+        self.socket_machine.quit()
         self.root_window.quit()
 
     def logout_request(self):
+        self.ms_indexer.save_message()
+        self.socket_machine.quit()
         # do something save record
         # socket disconnect
         self.state.set(csm.USER_OFFLINE)
@@ -329,13 +354,17 @@ class Client:
 
     def add_friend_request(self, name):  # need to wait until friend go online.
         print("friend request called")
-        attachment = ""  # keys
+        attachment = b""  # keys
+        encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack()  # protocol: extract signature, and make it a tuple when receving.
+        attachment = encrypted_aes_key + b"_" + signature[0]
         msg = ms.Message(str(self.username.get()), name, "add_friend", attachment)
         self.socket_machine.send_request(msg)  # maybe need special port ?
 
     def add_group_request(self, name):
         print("group request called")
-        msg = ms.Message(str(self.username.get()), name, "add_group", "")
+        encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack()  # protocol: extract signature, and make it a tuple when receving.
+        attachment = encrypted_aes_key + b"_" + signature[0]
+        msg = ms.Message(str(self.username.get()), name, "add_group", attachment)
         self.socket_machine.send_request(msg)  # maybe need special port ?
 
     def add_friend(self):  # raise new window
@@ -366,12 +395,6 @@ class Client:
         info_entry.pack()
         add_button.pack()
         back_button.pack()
-
-    def request_friend_real(self):
-        pass
-
-    def request_group_real(self):
-        pass
 
     @staticmethod
     def window_message_generator(username, content):
@@ -406,5 +429,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     master = tk.Tk()
-    client = Client(args, "ICS", master)
+    client = Client("ICS", master, args)
     client.start()

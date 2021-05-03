@@ -35,6 +35,10 @@ class ClientEncryptor:
         except FileNotFoundError as err:
             self.generate_key()
 
+    @staticmethod
+    def any_rsa_instance(key_str):
+        return RSA.importKey(key_str)
+
     def load_key(self):
         file_pointer = open(self.filename_keyring, 'rb')
         self.keyring = pickle.load(file_pointer)
@@ -105,10 +109,11 @@ class ClientEncryptor:
         encryptor = AES.new(self.aes128_key, AES.MODE_CBC, iv)
         return base64.b64encode(iv + encryptor.encrypt(content))
 
-    def aes_decrypt(self, ciphertext):
+    @staticmethod
+    def aes_decrypt(ciphertext, set_aes_key):
         ciphertext = base64.b64decode(ciphertext)
         iv = ciphertext[:ClientEncryptor.BLOCK_SIZE]
-        encryptor = AES.new(self.aes128_key, AES.MODE_CBC, iv)
+        encryptor = AES.new(set_aes_key, AES.MODE_CBC, iv)
         return ClientEncryptor.un_pad(encryptor.decrypt(ciphertext[ClientEncryptor.BLOCK_SIZE:]))
 
     def rsa_signature(self, ciphertext):

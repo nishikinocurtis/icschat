@@ -54,10 +54,6 @@ class MySocketClient:
                 break
             total_sent += sent
 
-
-
-
-
-
-
-
+    def quit(self):
+        self.socket.shutdown(socket.SHUT_RDWR)
+        self.socket.close()
