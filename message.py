@@ -12,12 +12,14 @@ class Message:
                    "friend_respond",  # client reply to request, server feedback
                    "group_respond",  # server feedback
                    "negotiate",  # server send negotiate information to group members
-                   "key",  # previous offline members send their keys to me
+                   "key",  # previous offline members send their keys to me/server
                    "communication",
                    "register_feedback",
                    "login_feedback",
                    "disconnect",
-                   "register_key"]  # register generating key
+                   "empty",
+                   "error",
+                   "register_key",]  # register generating key
 
     def __init__(self, from_name="", to_name="", action_type="", content=""):
         self.__from_name = ""

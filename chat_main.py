@@ -3,13 +3,11 @@ import threading
 import tkinter as tk
 import encrypter as enc
 import client_state_machine as csm
-import socket
-import select
-import sys
 import request_server as rs
 import message as ms
 import indexer as idx
 import time
+import select
 
 
 class Client:
@@ -130,7 +128,15 @@ class Client:
             # negotiate and save sender's aes128 key
             # update relation listbox
             # notice user success
-            pass
+            keys = msg.content.split(b'_')
+            from_rsa_public_key = keys[0]
+            encrypted_aes_key = keys[1]
+            signature = keys[2]
+            from_rsa_public_key = enc.ClientEncryptor.any_rsa_instance(from_rsa_public_key)
+            signature = (signature, None)
+            self.encrypt_machine.negotiate_aes(msg.from_name, from_rsa_public_key, encrypted_aes_key, signature)
+            self.refresh_relation(self.relation_origin + [msg.from_name])
+            self.notification(self.root_window, "Adding a friend successfully!")
         elif msg.action_type == "group_respond":
             if msg.content == "new":
                 # update relation listbox
@@ -157,16 +163,18 @@ class Client:
 
     def scan_loop(self):
         while self.state.get() == csm.USER_ONLINE:
-            msg = self.recv_package()
+            msg = self.try_get_msg()
             self.proc_package(msg)
 
     def send_package(self, msg):
         self.socket_machine.send_request(msg)
 
-    def recv_package(self):
-        msg = self.socket_machine.recv_request()
-        msg = ms.Message(from_name=msg["from"], to_name=msg["to"], action_type=msg["head"], content=msg["content"])
-        return msg
+    def try_get_msg(self):
+        ret_msg = []
+        read, write, error = select.select([self.socket_machine.socket], [], [], 0)
+        if self.socket_machine.socket in read:
+            ret_msg = self.socket_machine.recv_request()
+        return ret_msg
 
     def start(self):
         self.log_in_window()
@@ -285,7 +293,7 @@ class Client:
     def register_request_server(self, username, password):
         msg = ms.Message(username, "system", "register", password)
         self.socket_machine.send_request(msg)
-        feedback_msg = self.socket_machine.recv_request(msg)
+        feedback_msg = self.socket_machine.recv_request()
         if feedback_msg.content == "success":
             return True, "success"
         elif feedback_msg.content == "duplicate":
