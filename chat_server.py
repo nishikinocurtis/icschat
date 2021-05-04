@@ -58,11 +58,11 @@ class Server:
 
     def offline_proc(self, new_sock):
         msg = rs.MySocketClient.custom_recv(new_sock)
-        if len(msg) > 0:
-            if msg.action_type == "login":
-                self.login(new_sock, msg)
-            elif msg.action_type == "register":
-                self.register(new_sock, msg)
+        #if len(msg) > 0:
+        if msg.action_type == "login":
+            self.login(new_sock, msg)
+        elif msg.action_type == "register":
+            self.register(new_sock, msg)
 
     def online_proc(self, sock):
         msg = rs.MySocketClient.custom_recv(sock)
