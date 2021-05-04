@@ -6,6 +6,7 @@ import request_server as rs
 import pymysql as sql
 import message as ms
 import encrypter as enc
+import time
 
 
 class Server:
@@ -67,7 +68,9 @@ class Server:
     def online_proc(self, sock):
         msg = rs.MySocketClient.custom_recv(sock)
         if msg.action_type == "time":  # reply with info
-            pass
+            ctime = time.strftime('%d.%m.%y,%H:%M', time.localtime())
+            new_msg = ms.Message("system", msg.from_name, "notification", "Server time: " + ctime)
+            rs.MySocketClient.custom_send(sock, new_msg)
         elif msg.action_type == "poem":  # reply with info
             pass
         elif msg.action_type == "exchange":  # transfer
