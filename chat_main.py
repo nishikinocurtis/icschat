@@ -155,6 +155,8 @@ class Client:
         elif msg.action_type == "disconnect":
             # update relation listbox
             pass
+        elif msg.action_type == "fetch_key":
+            self.encrypt_machine.rsa_keyring[msg.to_name] = msg.content
 
     def refresh_event(self):
         current_relation = self.relation_origin[self.relations_list.curselection()[0]]
@@ -360,13 +362,22 @@ class Client:
         # result = send pack to server type: poem
         # self.notification(self.root_window, result)
 
+    def fetch_key(self, name):
+        msg = ms.Message(self.username.get(), name, action_type="fetch_key", content="")
+        self.socket_machine.send_request(msg)
+
     def add_friend_request(self, name):  # need to wait until friend go online.
         print("friend request called")
-        attachment = b""  # keys
-        encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack()  # protocol: extract signature, and make it a tuple when receving.
-        attachment = encrypted_aes_key + b"_" + signature[0]
-        msg = ms.Message(str(self.username.get()), name, "add_friend", attachment)
-        self.socket_machine.send_request(msg)  # maybe need special port ?
+        if name not in self.encrypt_machine.rsa_keyring.keys():
+            self.notification(self.root_window, "RSA Public Key invalid, please wait fetching")
+            self.fetch_key(name)
+            return
+        else:
+            rsa_public_key = enc.ClientEncryptor.any_rsa_instance(name)
+            encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack(rsa_public_key)  # protocol: extract signature, and make it a tuple when receving.
+            attachment = encrypted_aes_key + b"_" + signature[0]
+            msg = ms.Message(str(self.username.get()), name, "add_friend", attachment)
+            self.socket_machine.send_request(msg)  # maybe need special port ?
 
     def add_group_request(self, name):
         print("group request called")

@@ -7,6 +7,7 @@ import pymysql as sql
 import message as ms
 import encrypter as enc
 import time
+import pindexer as pind
 
 
 class Server:
@@ -23,6 +24,8 @@ class Server:
         self.socket_machine.socket.listen(5)
 
         self.all_sockets.append(self.socket_machine.socket)
+
+        self.sonnet = pind.PIndex("AllSonnets.txt")
 
     def new_client(self, new_sock):
         print("new connection attempt..")
@@ -46,16 +49,49 @@ class Server:
         rs.MySocketClient.custom_send(sock, feedback)
         if feedback.content == "success":
             self.all_sockets.append(sock)
+            self.logged_name2sock[msg.from_name] = sock
+            self.logged_sock2name[sock] = msg.from_name
             sql_query = "update state set state=1 where uid=%d" % results[0][0]
             self.cursor.execute(sql_query)
             self.sql_db.commit()
             # push blocked messages
 
-    def logout(self, sock, msg: ms.Message):
-        pass
+    def logout(self, sock, name):
+        del self.logged_name2sock[name]
+        del self.logged_sock2name[sock]
+        self.all_sockets.remove(sock)
+        sock.close()
+        sql_query = "update state set state=0 where username=%s" % name
+        self.cursor.execute(sql_query)
+        self.sql_db.commit()
 
     def register(self, sock, msg: ms.Message):
         pass
+
+    # sql operation methods begin ---
+
+    def check_online(self, username):
+        sql = "select username,state from state where username=%s" % username  # to be modified
+        self.cursor.execute(sql)
+        results = self.cursor.fetchall()
+        if results[0][1] == 1:
+            return True
+        else:
+            return False
+
+    def add_msg_queue(self, msg):
+        ctime = time.strftime('%d.%m.%y,%H:%M', time.localtime())
+        sql = f"""insert into msgQueue(fromname,
+                  toname, actiontype, content, time)
+                  values (\'{msg.from_name}\', \'{msg.to_name}\', \'{msg.action_type}\', \'{msg.content}\', \'{ctime}\')"""
+        try:
+            self.cursor.execute(sql)
+            self.sql_db.commit()
+        except Exception as err:
+            print("msgQueue inserting failed.")
+            self.sql_db.rollback()
+
+    # sql operation methods end ---
 
     def offline_proc(self, new_sock):
         msg = rs.MySocketClient.custom_recv(new_sock)
@@ -72,17 +108,40 @@ class Server:
             new_msg = ms.Message("system", msg.from_name, "notification", "Server time: " + ctime)
             rs.MySocketClient.custom_send(sock, new_msg)
         elif msg.action_type == "poem":  # reply with info
+            poem_list = self.sonnet.get_poem(int(msg.content))
+            poem = ""
+            for sentence in poem_list:
+                poem += sentence + "\n"
+            poem += "\n"
+            new_msg = ms.Message("system", msg.from_name, "notification", poem)
+            rs.MySocketClient.custom_send(sock, new_msg)
+        elif msg.action_type == "fetch_key":
             pass
         elif msg.action_type == "exchange":  # transfer
-            pass
+            state = self.check_online(msg.to_name)
+            if state:
+                rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], msg)
+            else:
+                self.add_msg_queue(msg)
         elif msg.action_type == "add_friend":  # transfer a change request
-            pass
+            state = self.check_online(msg.to_name)
+            new_msg = ms.Message(msg.from_name, msg.to_name, "change", msg.content)
+            if state:
+                rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], new_msg)
+            else:
+                self.add_msg_queue(new_msg)
         elif msg.action_type == "add_group":  # transfer a negotiate request
             pass
         elif msg.action_type == "friend_respond":  # transfer to origin
-            pass
+            rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], msg)
         elif msg.action_type == "key":  # transfer to origin
             pass
+        elif msg.action_type == "fetch_key":
+            rsa = self.fetch_rsa_table(msg.to_name)
+            new_msg = ms.Message(msg.from_name, msg.to_name, msg.action_type, rsa)
+            rs.MySocketClient.custom_send(sock, new_msg)
+        elif msg.action_type == "logout":
+            self.logout(sock, msg.from_name)
         else:
             pass
 

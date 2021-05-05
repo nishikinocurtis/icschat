@@ -16,10 +16,11 @@ class Message:
                    "communication",
                    "register_feedback",
                    "login_feedback",
-                   "disconnect",
+                   "disconnect",  # delete a friend or quit from a group
                    "empty",
                    "error",
-                   "register_key",]  # register generating key
+                   "register_key",  # register generating key
+                   "fetch_key"]
 
     def __init__(self, from_name="", to_name="", action_type="", content=""):
         self.__from_name = ""

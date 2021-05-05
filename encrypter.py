@@ -14,6 +14,7 @@ class ClientEncryptor:
 
     def __init__(self):
         self.keyring = dict()
+        self.rsa_keyring = dict()
         self.name = ""
         self.rsa1024_key = None
         self.aes128_key = None
