@@ -233,7 +233,8 @@ class Server:
                 self.add_msg_queue(msg)
         elif msg.action_type == "add_friend":  # transfer a change request
             state = self.check_online(msg.to_name)
-            new_msg = ms.Message(msg.from_name, msg.to_name, "change", msg.content)
+            publickey = self.fetch_rsa_table(msg.from_name)
+            new_msg = ms.Message(msg.from_name, msg.to_name, "change", publickey+"_"+msg.content)
             if state:
                 rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], new_msg)
             else:
