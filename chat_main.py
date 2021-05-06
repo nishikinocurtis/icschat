@@ -159,6 +159,7 @@ class Client:
             pass
         elif msg.action_type == "fetch_key":
             self.encrypt_machine.rsa_keyring[msg.to_name] = bytes(msg.content, 'utf-8')
+            print(self.encrypt_machine.rsa_keyring[msg.to_name])
 
     def refresh_event(self):
         current_relation = self.relation_origin[self.relations_list.curselection()[0]]
@@ -409,7 +410,7 @@ class Client:
             self.fetch_key(name)
             return
         else:
-            rsa_public_key = enc.ClientEncryptor.any_rsa_instance(name)
+            rsa_public_key = enc.ClientEncryptor.any_rsa_instance(self.encrypt_machine.get_rsa_by_name(name))
             encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack(rsa_public_key)  # protocol: extract signature, and make it a tuple when receving.
             attachment = encrypted_aes_key + "_" + signature
             msg = ms.Message(str(self.username.get()), name, "add_friend", attachment)

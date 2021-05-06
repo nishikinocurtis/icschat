@@ -39,8 +39,12 @@ class ClientEncryptor:
         except FileNotFoundError as err:
             self.generate_key()
 
+    def get_rsa_by_name(self, name):
+        return self.rsa_keyring[name]
+
     @staticmethod
     def any_rsa_instance(key_str):
+        # print("test" + key_str)
         return RSA.importKey(key_str)
 
     def load_key(self):

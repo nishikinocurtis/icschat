@@ -124,7 +124,7 @@ class Server:
         self.cursor.execute(uid)
         results = self.cursor.fetchall()
         uid = results[0][0]
-        sql_query = f"select uid,state from state where binary username=\'{uid}\';"  # to be modified
+        sql_query = f"select uid,state from state where uid=\'{uid}\';"  # to be modified
         self.cursor.execute(sql_query)
         results = self.cursor.fetchall()
         self.close()
