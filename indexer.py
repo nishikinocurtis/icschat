@@ -26,7 +26,7 @@ class Indexer:
             pass
 
     def save_message(self):
-        Path("./" + self.name)
+        Path("./" + self.name).mkdir(exist_ok=True)
         file_pointer = open("./" + self.name + "/messages.json", 'w+')
         self.messages["system_total"] = [str(self.total_message)]
         json.dump(self.messages, file_pointer)

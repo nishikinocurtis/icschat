@@ -36,7 +36,7 @@ class Server:
 
     def login(self, sock, msg: ms.Message):
         print("login request received.")
-        sql_query = f"select uid,username,password,publickey from users where username=\'{msg.from_name}\';"
+        sql_query = f"select uid,username,password,publickey from users where binary username=\'{msg.from_name}\';"
         self.cursor.execute(sql_query)
         results = self.cursor.fetchall()
         feedback = ms.Message("system", msg.from_name, "login_feedback", "")
@@ -77,7 +77,7 @@ class Server:
         self.sql_db.commit()
 
     def register(self, sock, msg: ms.Message):
-        sql_query = f"select username from users where username=\'{msg.from_name}\';"
+        sql_query = f"select username from users where binary username=\'{msg.from_name}\';"
         self.cursor.execute(sql_query)
         results = self.cursor.fetchall()
         feedback = ms.Message("system", msg.from_name, "register_feedback", "")
@@ -96,7 +96,7 @@ class Server:
                 feedback.content = "database error"
         rs.MySocketClient.custom_send(sock, feedback)
         if feedback.content == "success":
-            u_query = f"select uid from users where username = \'{msg.from_name}\';"
+            u_query = f"select uid from users where binary username = \'{msg.from_name}\';"
             self.cursor.execute(u_query)
             results = self.cursor.fetchall()
 
@@ -111,7 +111,7 @@ class Server:
     # sql operation methods begin ---
 
     def get_uid_by_name(self, name):
-        sql_query = f"select uid from users where username=\'{name}\';"
+        sql_query = f"select uid from users where binary username=\'{name}\';"
         self.cursor.execute(sql_query)
         results = self.cursor.fetchall()
         if len(results) > 0:
@@ -120,11 +120,11 @@ class Server:
             return -1
 
     def check_online(self, username):
-        uid = f"select uid from users where username=\'{username}\';"
+        uid = f"select uid from users where binary username=\'{username}\';"
         self.cursor.execute(uid)
         results = self.cursor.fetchall()
         uid = results[0][0]
-        sql_query = f"select uid,state from state where username=\'{uid}\';"  # to be modified
+        sql_query = f"select uid,state from state where binary username=\'{uid}\';"  # to be modified
         self.cursor.execute(sql_query)
         results = self.cursor.fetchall()
         self.close()
@@ -146,13 +146,13 @@ class Server:
             self.sql_db.rollback()
 
     def fetch_rsa_table(self, name):
-        sql_query = f"select publickey from users where username=\'{name}\'"
+        sql_query = f"select publickey from users where binary username=\'{name}\'"
         self.cursor.execute(sql_query)
         results = self.cursor.fetchall()
         return results[0][0]
 
     def query_relation(self, name):
-        uid_query = f"select uid from users where username=\'{name}\';"
+        uid_query = f"select uid from users where binary username=\'{name}\';"
         self.cursor.execute(uid_query)
         results = self.cursor.fetchall()
         relation_query = f"""select uid2name as friends from friendrelation where uid1={results[0][0]}
@@ -173,11 +173,11 @@ class Server:
         return relation_string
 
     def add_publickey(self, msg):
-        update = f"update users set publickey=\'{msg.content}\' where username=\'{msg.from_name}\'"
+        update = f"update users set publickey=\'{msg.content}\' where binary username=\'{msg.from_name}\'"
         self.cursor.execute(update)
 
     def query_blocked_msg(self, name):
-        sql_query = f"select fromname, toname, actiontype, content from msgQueue where toname=\'{name}\';"
+        sql_query = f"select fromname, toname, actiontype, content from msgQueue where binary toname=\'{name}\';"
         self.cursor.execute(sql_query)
         results = self.cursor.fetchall()
         blocked = []
