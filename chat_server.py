@@ -127,7 +127,6 @@ class Server:
         sql_query = f"select uid,state from state where uid=\'{uid}\';"  # to be modified
         self.cursor.execute(sql_query)
         results = self.cursor.fetchall()
-        self.close()
         if results[0][1] == 1:
             return True
         else:
