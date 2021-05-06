@@ -31,3 +31,9 @@ class Indexer:
         self.messages["system_total"] = [str(self.total_message)]
         json.dump(self.messages, file_pointer)
         file_pointer.close()
+
+    def get_message_list(self, name):
+        if name in self.messages.keys():
+            return self.messages[name]
+        else:
+            return []
