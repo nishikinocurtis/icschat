@@ -8,6 +8,7 @@ import message as ms
 import indexer as idx
 import time
 import select
+import random
 
 
 class Client:
@@ -105,21 +106,20 @@ class Client:
             # negotiate and save sender's aes128 key
             # send my aes128 key "respond pack"
             # update relation listbox
-            keys = msg.content.split(b"_")
-            from_rsa_public_key = keys[0]
+            keys = msg.content.split("_")
+            from_rsa_public_key = keys[0].encode('utf-8')
             encrypted_aes_key = keys[1]
             signature = keys[2]
             from_rsa_public_key = enc.ClientEncryptor.any_rsa_instance(from_rsa_public_key)
-            signature = (signature, None)
             self.encrypt_machine.negotiate_aes(msg.from_name, from_rsa_public_key, encrypted_aes_key, signature)
             encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack(from_rsa_public_key)
-            attachment = encrypted_aes_key + b"_" + signature[0]
+            attachment = encrypted_aes_key + "_" + signature
             new_msg = ms.Message(self.username.get(), msg.from_name, "friend_respond", attachment)
             self.socket_machine.send_request(new_msg)
         elif msg.action_type == "exchange":
             # decrypt with sender's aes128 key, when in group, the to_name attribute is group_name
             # update record and msg list
-            actual_message = enc.aes_encrypt(msg.content, self.encrypt_machine.keyring[msg.from_name])
+            actual_message = enc.ClientEncryptor.aes_decrypt(bytes(msg.content, 'utf-8'), self.encrypt_machine.keyring[msg.from_name])
             display_message = Client.window_message_generator(msg.from_name, actual_message)
             self.ms_indexer.add_new(msg.from_name, display_message)
             if msg.from_name == self.relation_origin[self.relations_list.curselection()[0]]:
@@ -156,7 +156,7 @@ class Client:
             # update relation listbox
             pass
         elif msg.action_type == "fetch_key":
-            self.encrypt_machine.rsa_keyring[msg.to_name] = msg.content
+            self.encrypt_machine.rsa_keyring[msg.to_name] = bytes(msg.content, 'utf-8')
 
     def refresh_event(self):
         current_relation = self.relation_origin[self.relations_list.curselection()[0]]
@@ -166,7 +166,9 @@ class Client:
     def scan_loop(self):
         while self.state.get() == csm.USER_ONLINE:
             msg = self.try_get_msg()
-            self.proc_package(msg)
+            if isinstance(msg, ms.Message):
+                self.proc_package(msg)
+            time.sleep(self.socket_machine.CHAT_WAIT)
 
     def send_package(self, msg):
         self.socket_machine.send_request(msg)
@@ -210,8 +212,8 @@ class Client:
         new_username_label = tk.Label(register_pop_up, text="Username: ")
         new_password_label = tk.Label(register_pop_up, text="Password: ")
 
-        new_username_entry = tk.Entry(register_pop_up, textvariable=self.username)
-        new_password_entry = tk.Entry(register_pop_up, textvariable=self.password, show="*")
+        new_username_entry = tk.Entry(register_pop_up, textvariable=new_username)
+        new_password_entry = tk.Entry(register_pop_up, textvariable=new_password, show="*")
 
         register_button = tk.Button(register_pop_up, text="Register", command=registering)
         register_back_button = tk.Button(register_pop_up, text="Back", command=register_pop_up.destroy)
@@ -250,10 +252,13 @@ class Client:
         login_result, info = self.login_request_server(us, pwd)
 
         if login_result:
+            print("request success.")
             self.state.set(csm.USER_ONLINE)
             self.encrypt_machine.start(us)
             self.login_window_destroy()
             self.ms_indexer.load_message(us)
+            friends_groups = info.split("+")[1]
+            self.refresh_relation(friends_groups.split(","))
             self.chat_window()
             self.start_thread(self.scan_loop)
         else:
@@ -264,6 +269,8 @@ class Client:
                 self.password_entry.delete(0, 'end')
                 self.username_entry.delete(0, 'end')
                 self.register_window()
+            elif info == "no_publickey":
+                self.notification(self.root_window, "PublicKey invalid.")
             else:
                 pass
 
@@ -272,36 +279,47 @@ class Client:
         register_result, info = self.register_request_server(username, password)
         if register_result:
             self.encrypt_machine.start(username)
-            msg = ms.Message(username, "system", "register_key", self.encrypt_machine.rsa1024_key.publickey.exportKey())
+            msg = ms.Message(username, "system", "register_key", self.encrypt_machine.public_key_string())
             self.encrypt_machine.export_key()
             self.socket_machine.send_request(msg)
             self.notification(self.root_window, "Registration Succeed, Please Log In.")
         else:
-            self.notification(self.root_window, "Duplicate username. Please use another one.")
+            if info == "duplicate":
+                self.notification(self.root_window, "Duplicate username. Please use another one.")
+            else:
+                pass
 
     def login_request_server(self, username, password):
-        return True, "success"
+        # return True, "success"
         # debug using
         msg = ms.Message(username, "system", "login", password)
         self.socket_machine.send_request(msg)
+        print("login request sent.")
         feedback_msg = self.socket_machine.recv_request()
-        if feedback_msg.content == "success":
-            return True, "success"
-        elif feedback_msg.content == "wrong":
+        print("login feedback received.")
+        ls = feedback_msg.content.split("+")
+        if ls[0] == "success":  # contain relation lists.
+            return True, feedback_msg.content
+        elif ls[0] == "wrong":
             return False, "wrong_password"
-        elif feedback_msg.content == "not_exist":
+        elif ls[0] == "not_exist":
             return False, "not_exist"
+        elif ls[0] == "no_publickey":
+            return False, "no_publickey"
+        else:
+            return False, ""
 
     def register_request_server(self, username, password):
         msg = ms.Message(username, "system", "register", password)
         self.socket_machine.send_request(msg)
         feedback_msg = self.socket_machine.recv_request()
+        print("register feedback received.")
         if feedback_msg.content == "success":
             return True, "success"
         elif feedback_msg.content == "duplicate":
             return False, "duplicate"
         else:
-            pass
+            return False, "others"
         # check existing username
         # let encryptor generates new public key on server
         # receive a package
@@ -323,7 +341,13 @@ class Client:
 
     def refresh_relation(self, new_relation_list):
         self.relation_origin = new_relation_list
-        new_string = sum([line + " " for line in self.relation_origin])
+        new_string = ""
+        if len(self.relation_origin) > 0:
+            n = len(self.relation_origin)
+            for i in range(n):
+                new_string += self.relation_origin[i]
+                if i < n - 1:
+                    new_string += " "
         self.relation_string.set(new_string)
 
     def update_message(self, new_msg: str):  # a Message of change action
@@ -337,15 +361,19 @@ class Client:
 
     def offline_quit(self):
         # socket disconnect
+        msg = ms.Message("", "system", "close", "")
+        self.socket_machine.send_request(msg)
         self.socket_machine.quit()
         self.root_window.quit()
 
     def logout_request(self):
         self.ms_indexer.save_message()
+        self.state.set(csm.USER_OFFLINE)
+        msg = ms.Message(self.username.get(), "system", "logout", "")
+        self.socket_machine.send_request(msg)
         self.socket_machine.quit()
         # do something save record
         # socket disconnect
-        self.state.set(csm.USER_OFFLINE)
         self.root_window.quit()
 
     def server_time_request(self):
@@ -356,7 +384,8 @@ class Client:
         # self.notification(self.root_window, result)
 
     def poem_request(self):
-        msg = ms.Message(str(self.username.get()), "system", "poem", "")
+        number = random.randint(1, 109)
+        msg = ms.Message(str(self.username.get()), "system", "poem", str(number))
         self.socket_machine.send_request(msg)
         # result = "Sonnet Chapter 3"
         # result = send pack to server type: poem
@@ -375,7 +404,7 @@ class Client:
         else:
             rsa_public_key = enc.ClientEncryptor.any_rsa_instance(name)
             encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack(rsa_public_key)  # protocol: extract signature, and make it a tuple when receving.
-            attachment = encrypted_aes_key + b"_" + signature[0]
+            attachment = encrypted_aes_key + "_" + signature
             msg = ms.Message(str(self.username.get()), name, "add_friend", attachment)
             self.socket_machine.send_request(msg)  # maybe need special port ?
 
@@ -432,8 +461,8 @@ class Client:
             self.message_entry.delete(0, 'end')
             selected = self.relations_list.curselection()[0]
             self.update_message(Client.window_message_generator(self.username.get(), current_content))
-            current_content = self.encrypt_machine.aes_encrypt(current_content)
-            msg = ms.Message(from_name=self.username.get(), to_name=self.relation_origin[selected], action_type="change", content=current_content)
+            current_content = self.encrypt_machine.aes_encrypt(current_content).decode('utf-8')
+            msg = ms.Message(from_name=self.username.get(), to_name=self.relation_origin[selected], action_type="exchange", content=current_content)
             self.socket_machine.send_request(msg)
         # current_content enter file.
         # fetch current users

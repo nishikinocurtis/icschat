@@ -38,7 +38,7 @@ class MySocketClient:
             msg += text
         # print ('received '+message)
         if len(msg) > 0:
-            msg = json.load(msg)
+            msg = json.loads(msg)
             return ms.Message(msg["from"], msg["to"], msg["head"], msg["content"])
         else:
             return ms.Message(action_type="error")
@@ -92,11 +92,10 @@ class MySocketClient:
             msg += text
         # print ('received '+message)
         if len(msg) > 0:
-            msg = json.load(msg)
+            msg = json.loads(msg)
             return ms.Message(msg["from"], msg["to"], msg["head"], msg["content"])
         else:
             return ms.Message(action_type="error")
-
 
     def quit(self):
         self.socket.shutdown(socket.SHUT_RDWR)

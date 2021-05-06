@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 
 class Indexer:
@@ -18,14 +19,15 @@ class Indexer:
     def load_message(self, username):
         self.name = username
         try:
-            file_pointer = open(self.name + "\messages.json")
+            file_pointer = open("./" + self.name + "/messages.json")
             self.messages = json.load(file_pointer)
             file_pointer.close()
         except FileNotFoundError:
             pass
 
     def save_message(self):
-        file_pointer = open(self.name + "\messages.json", 'w')
+        Path("./" + self.name)
+        file_pointer = open("./" + self.name + "/messages.json", 'w+')
         self.messages["system_total"] = [str(self.total_message)]
         json.dump(self.messages, file_pointer)
         file_pointer.close()

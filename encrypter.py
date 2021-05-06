@@ -5,7 +5,9 @@ from Crypto import Random
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Signature import PKCS1_v1_5
 import pickle
+from pathlib import Path
 # credit docs-im.easemob.com for ideas
 
 
@@ -17,6 +19,7 @@ class ClientEncryptor:
         self.rsa_keyring = dict()
         self.name = ""
         self.rsa1024_key = None
+        self.rsa1024_publickey = None
         self.aes128_key = None
 
         self.filename_public = "client_rsa1024_pub.key"
@@ -26,10 +29,10 @@ class ClientEncryptor:
 
     def start(self, name):
         self.name = name
-        self.filename_public = self.name + "\client_rsa1024_pub.key"
-        self.filename_private = self.name + "\client_rsa1024_pri.key"
-        self.filename_aes = self.name + "\client_aes128.key"
-        self.filename_keyring = self.name + "\client_ring.key"
+        self.filename_public = "./" + self.name + "/client_rsa1024_pub.key"
+        self.filename_private = "./" + self.name + "/client_rsa1024_pri.key"
+        self.filename_aes = "./" + self.name + "/client_aes128.key"
+        self.filename_keyring = "./" + self.name + "/client_ring.key"
 
         try:
             self.load_key()
@@ -54,7 +57,7 @@ class ClientEncryptor:
         file_pointer = open(self.filename_public, 'rb')
         lines = file_pointer.readlines()
         lines = b''.join(i for i in lines)
-        self.rsa1024_key.publickey = RSA.importKey(lines)
+        self.rsa1024_publickey = RSA.importKey(lines)
         file_pointer.close()
 
         file_pointer = open(self.filename_aes, 'rb')
@@ -62,22 +65,24 @@ class ClientEncryptor:
         file_pointer.close()
 
     def export_key(self):
-        file_pointer = open(self.filename_private, 'wb')
+        Path("./" + self.name).mkdir(exist_ok=True)
+
+        file_pointer = open(self.filename_private, 'wb+')
         line = self.rsa1024_key.exportKey(format="PEM")
         file_pointer.write(line)
         file_pointer.close()
 
-        file_pointer = open(self.filename_public, 'wb')
-        line = self.rsa1024_key.publickey.exportKey(format="PEM")
+        file_pointer = open(self.filename_public, 'wb+')
+        line = self.rsa1024_publickey.exportKey(format="PEM")
         file_pointer.write(line)
         file_pointer.close()
 
-        file_pointer = open(self.filename_aes, 'w')
+        file_pointer = open(self.filename_aes, 'wb+')
         line = self.aes128_key
         file_pointer.write(line)
         file_pointer.close()
 
-        file_pointer = open(self.filename_keyring, 'wb')
+        file_pointer = open(self.filename_keyring, 'wb+')
         pickle.dump(self.keyring, file_pointer, protocol=1)
         file_pointer.close()
 
@@ -88,6 +93,7 @@ class ClientEncryptor:
     def generate_rsa1024_key(self):
         random_generator = Random.new().read
         self.rsa1024_key = RSA.generate(1024, random_generator)
+        self.rsa1024_publickey = self.rsa1024_key.publickey()
 
     def generate_aes128_key(self):
         self.aes128_key = Random.get_random_bytes(32)
@@ -110,6 +116,9 @@ class ClientEncryptor:
         encryptor = AES.new(self.aes128_key, AES.MODE_CBC, iv)
         return base64.b64encode(iv + encryptor.encrypt(content))
 
+    def public_key_string(self):
+        return self.rsa1024_publickey.exportKey(format='PEM').decode('utf-8')
+
     @staticmethod
     def aes_decrypt(ciphertext, set_aes_key):
         ciphertext = base64.b64decode(ciphertext)
@@ -130,10 +139,13 @@ class ClientEncryptor:
 
     def negotiate_aes(self, name, rsa_public_key,
                       encrypted_aes_key, signature):  # return aes128 key
+        encrypted_aes_key = bytes(encrypted_aes_key, 'ISO-8859-1')
+        signature = bytes(signature, 'ISO-8859-1')
         cipher = PKCS1_OAEP.new(self.rsa1024_key)
         actual_aes_key = cipher.decrypt(encrypted_aes_key)
-        local_hash = self.hash_text(actual_aes_key)
-        if rsa_public_key.verify(local_hash, signature):
+        local_hash = SHA256.new(actual_aes_key)
+        verifier = PKCS1_v1_5.new(rsa_public_key)
+        if verifier.verify(local_hash, signature):
             self.add_keyring(name, actual_aes_key)
             return True
         else:
@@ -144,9 +156,10 @@ class ClientEncryptor:
     def create_negotiate_pack(self, rsa_public_key):
         cipher = PKCS1_OAEP.new(rsa_public_key)
         encrypted_aes_key = cipher.encrypt(self.aes128_key)
-        local_hash = self.hash_text(self.aes128_key)
-        signature = self.rsa1024_key.sign(local_hash, 0)
-        return encrypted_aes_key, signature
+        local_hash = SHA256.new(self.aes128_key)
+        signer = PKCS1_v1_5.new(self.rsa1024_key)
+        signature = signer.sign(local_hash)
+        return encrypted_aes_key.decode('ISO-8859-1'), signature.decode('ISO-8859-1')
 
 
 # key file format:

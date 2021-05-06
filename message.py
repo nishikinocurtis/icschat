@@ -7,7 +7,7 @@ class Message:
                    "add_friend",  # client request new friend
                    "add_group",  # client request new group
                    "logout",  # client request logout
-                   "notification"  # server send notification
+                   "notification",  # server send notification
                    "change",  # server recv friend request
                    "friend_respond",  # client reply to request, server feedback
                    "group_respond",  # server feedback
@@ -20,7 +20,9 @@ class Message:
                    "empty",
                    "error",
                    "register_key",  # register generating key
-                   "fetch_key"]
+                   "fetch_key",
+                   "close",
+                   ""]
 
     def __init__(self, from_name="", to_name="", action_type="", content=""):
         self.__from_name = ""
@@ -60,7 +62,7 @@ class Message:
         if value in Message.action_list:
             self.__action_type = value
         else:
-            print("invalid action type")
+            print(f"invalid action type, get {value}.")
 
     @to_name.setter
     def to_name(self, value):
@@ -73,5 +75,7 @@ class Message:
     def content(self, value):
         if isinstance(value, str):
             self.__content = value
+        elif isinstance(value, bytes):
+            self.__content = value.decode('utf-8')
         else:
             print("content TypeErr")

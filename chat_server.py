@@ -5,7 +5,6 @@ import select
 import request_server as rs
 import pymysql as sql
 import message as ms
-import encrypter as enc
 import time
 import pindexer as pind
 
@@ -20,6 +19,7 @@ class Server:
         self.sql_db = sql.connect(host="localhost", user="curtis", password="Curtis.1020", database="ICSCHAT",
                                   charset='utf8')
         self.cursor = self.sql_db.cursor()
+        print("SQL connection succeed.")
         self.socket_machine.socket.bind(self.socket_machine.SERVER)
         self.socket_machine.socket.listen(5)
 
@@ -31,27 +31,35 @@ class Server:
         print("new connection attempt..")
         new_sock.setblocking(0)
         self.new_clients.append(new_sock)
+        self.all_sockets.append(new_sock)
         # self.all_sockets.append()
 
     def login(self, sock, msg: ms.Message):
-        sql_query = "select uid,username,password from userinfo where username='%s';" % msg.from_name
+        print("login request received.")
+        sql_query = f"select uid,username,password,publickey from users where username=\'{msg.from_name}\';"
         self.cursor.execute(sql_query)
         results = self.cursor.fetchall()
         feedback = ms.Message("system", msg.from_name, "login_feedback", "")
+        flg = False
         if len(results) == 0:
             feedback.content = "not_exist"
         else:
             if msg.content != results[0][2]:
                 feedback.content = "wrong"
+            elif results[0][3] == "":
+                feedback.content = "no_publickey"
             else:
-                feedback.content = "success"
+                feedback.content = "success+" + self.query_relation(msg.from_name)
+                flg = True
 
         rs.MySocketClient.custom_send(sock, feedback)
-        if feedback.content == "success":
-            self.all_sockets.append(sock)
+        if flg:
+            print("login success")
+            # self.all_sockets.append(sock)
+            self.new_clients.remove(sock)
             self.logged_name2sock[msg.from_name] = sock
             self.logged_sock2name[sock] = msg.from_name
-            sql_query = "update state set state=1 where uid=%d" % results[0][0]
+            sql_query = f"update state set state=1 where uid={results[0][0]}"
             self.cursor.execute(sql_query)
             self.sql_db.commit()
             # push blocked messages
@@ -61,19 +69,63 @@ class Server:
         del self.logged_sock2name[sock]
         self.all_sockets.remove(sock)
         sock.close()
-        sql_query = "update state set state=0 where username=%s" % name
+        uid = self.get_uid_by_name(name)
+        sql_query = f"update state set state=0 where uid=\'{uid}\';"
         self.cursor.execute(sql_query)
         self.sql_db.commit()
 
     def register(self, sock, msg: ms.Message):
-        pass
+        sql_query = f"select username from users where username=\'{msg.from_name}\';"
+        self.cursor.execute(sql_query)
+        results = self.cursor.fetchall()
+        feedback = ms.Message("system", msg.from_name, "register_feedback", "")
+        print("register results", results)
+        if len(results) > 0:
+            feedback.content = "duplicate"
+        else:
+            try:
+                create = f"insert into users (username, password, publickey) values (\'{msg.from_name}\', \'{msg.content}\', \'\');"
+                self.cursor.execute(create)
+                self.sql_db.commit()
+
+                feedback.content = "success"
+            except Exception as err:
+                self.sql_db.rollback()
+                feedback.content = "database error"
+        rs.MySocketClient.custom_send(sock, feedback)
+        if feedback.content == "success":
+            u_query = f"select uid from users where username = \'{msg.from_name}\';"
+            self.cursor.execute(u_query)
+            results = self.cursor.fetchall()
+
+            try:
+                create = f"insert into state (uid, state) values ({results[0][0]}, 0);"
+                self.cursor.execute(create)
+                self.sql_db.commit()
+
+            except Exception as err:
+                self.sql_db.rollback()
 
     # sql operation methods begin ---
 
-    def check_online(self, username):
-        sql = "select username,state from state where username=%s" % username  # to be modified
-        self.cursor.execute(sql)
+    def get_uid_by_name(self, name):
+        sql_query = f"select uid from users where username=\'{name}\';"
+        self.cursor.execute(sql_query)
         results = self.cursor.fetchall()
+        if len(results) > 0:
+            return results[0][0]
+        else:
+            return -1
+
+    def check_online(self, username):
+        uid = f"select uid from users where username=\'{username}\';"
+        self.cursor.execute(uid)
+        results = self.cursor.fetchall()
+        uid = results[0][0]
+        sql_query = f"select uid,state from state where username=\'{uid}\';"  # to be modified
+        self.cursor.execute(sql_query)
+        results = self.cursor.fetchall()
+        self.close()
         if results[0][1] == 1:
             return True
         else:
@@ -87,22 +139,67 @@ class Server:
         try:
             self.cursor.execute(sql)
             self.sql_db.commit()
+
         except Exception as err:
             print("msgQueue inserting failed.")
             self.sql_db.rollback()
 
+    def fetch_rsa_table(self, name):
+        sql_query = f"select publickey from users where username=\'{name}\'"
+        self.cursor.execute(sql_query)
+        results = self.cursor.fetchall()
+        return results[0][0]
+
+    def query_relation(self, name):
+        uid_query = f"select uid from users where username=\'{name}\';"
+        self.cursor.execute(uid_query)
+        results = self.cursor.fetchall()
+        relation_query = f"""select uid2name as friends from friendrelation where uid1={results[0][0]}
+                             union all
+                             select uid1name as friends from friendrelation where uid2={results[0][0]};"""
+        self.cursor.execute(relation_query)
+        relation_list = self.cursor.fetchall()
+        relation_string = ""
+        if len(relation_list) > 0:
+            # relation_string += sum([line[0] + "," for line in relation_list])
+            n = len(relation_list)
+            for i in range(n):
+                relation_string += relation_list[i][0]
+                if i < n - 1:
+                    relation_string += ","
+        # relation_list should be added
+        relation_string += ""
+        return relation_string
+
+    def add_publickey(self, msg):
+        update = f"update users set publickey=\'{msg.content}\' where username=\'{msg.from_name}\'"
+        self.cursor.execute(update)
+
     # sql operation methods end ---
+
+    def remove_sock(self, sock):
+        self.all_sockets.remove(sock)
+        self.new_clients.remove(sock)
+        sock.close()
 
     def offline_proc(self, new_sock):
         msg = rs.MySocketClient.custom_recv(new_sock)
-        #if len(msg) > 0:
+        if msg.action_type == "error":
+            self.logout(new_sock, msg.from_name)
+        # if len(msg) > 0:
         if msg.action_type == "login":
             self.login(new_sock, msg)
         elif msg.action_type == "register":
             self.register(new_sock, msg)
+        elif msg.action_type == "register_key":
+            self.add_publickey(msg)
+        elif msg.action_type == "close" or msg.action_type == "empty":
+            self.remove_sock(new_sock)
 
     def online_proc(self, sock):
         msg = rs.MySocketClient.custom_recv(sock)
+        if msg.action_type == "close" or msg.action_type == "empty":
+            self.logout(sock, msg.from_name)
         if msg.action_type == "time":  # reply with info
             ctime = time.strftime('%d.%m.%y,%H:%M', time.localtime())
             new_msg = ms.Message("system", msg.from_name, "notification", "Server time: " + ctime)
@@ -116,7 +213,9 @@ class Server:
             new_msg = ms.Message("system", msg.from_name, "notification", poem)
             rs.MySocketClient.custom_send(sock, new_msg)
         elif msg.action_type == "fetch_key":
-            pass
+            rsa_key = self.fetch_rsa_table(msg.to_name)
+            new_msg = ms.Message(msg.from_name, msg.to_name, "fetch_key", rsa_key)
+            rs.MySocketClient.custom_send(sock, new_msg)
         elif msg.action_type == "exchange":  # transfer
             state = self.check_online(msg.to_name)
             if state:
@@ -151,6 +250,9 @@ class Server:
             read, write, error = select.select(self.all_sockets, [], [])
             print("checking logged clients...")
             # proc msg
+            for log_c in list(self.logged_name2sock.values()):
+                if log_c in read:
+                    self.online_proc(log_c)
             print("checking new clients...")
             # proc initial msg
             for new_c in self.new_clients[:]:
