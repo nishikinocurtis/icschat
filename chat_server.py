@@ -62,7 +62,9 @@ class Server:
             sql_query = f"update state set state=1 where uid={results[0][0]}"
             self.cursor.execute(sql_query)
             self.sql_db.commit()
-            # push blocked messages
+            blocked = self.query_blocked_msg(msg.from_name)
+            for line in blocked:
+                rs.MySocketClient.custom_send(sock, line)
 
     def logout(self, sock, name):
         del self.logged_name2sock[name]
@@ -132,14 +134,13 @@ class Server:
             return False
 
     def add_msg_queue(self, msg):
-        ctime = time.strftime('%d.%m.%y,%H:%M', time.localtime())
+        # ctime = time.strftime('%d.%m.%y,%H:%M', time.localtime())
         sql = f"""insert into msgQueue(fromname,
                   toname, actiontype, content, time)
-                  values (\'{msg.from_name}\', \'{msg.to_name}\', \'{msg.action_type}\', \'{msg.content}\', \'{ctime}\')"""
+                  values (\'{msg.from_name}\', \'{msg.to_name}\', \'{msg.action_type}\', \'{msg.content}\', NOW())"""
         try:
             self.cursor.execute(sql)
             self.sql_db.commit()
-
         except Exception as err:
             print("msgQueue inserting failed.")
             self.sql_db.rollback()
@@ -174,6 +175,15 @@ class Server:
     def add_publickey(self, msg):
         update = f"update users set publickey=\'{msg.content}\' where username=\'{msg.from_name}\'"
         self.cursor.execute(update)
+
+    def query_blocked_msg(self, name):
+        sql_query = f"select fromname, toname, actiontype, content from msgQueue where toname=\'{name}\';"
+        self.cursor.execute(sql_query)
+        results = self.cursor.fetchall()
+        blocked = []
+        for msg in results:
+            blocked.append(ms.Message(msg[0], msg[1], msg[2], msg[3]))
+        return blocked
 
     # sql operation methods end ---
 
