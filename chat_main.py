@@ -70,6 +70,8 @@ class Client:
         self.relations_scroll.config(command=self.relations_list.yview)
         self.relations_list.grid(row=0, column=0, sticky=tk.N + tk.S + tk.E + tk.W)
 
+        self.relations_list.bind('<ButtonRelease-1>', self.change_current_relation)
+
         self.add_friend_button = tk.Button(self.relations_frame, text="+ Add Friend/Group", command=self.add_friend,
                                            width=25)
         self.add_friend_button.grid(row=1, column=0, columnspan=2, sticky=tk.W + tk.E + tk.S)
@@ -338,6 +340,9 @@ class Client:
     def chat_window(self):
         self.tool_frame.pack(pady=10, padx=10, anchor='nw')
         self.content_frame.pack(pady=10, padx=10, anchor='s')
+
+    def change_current_relation(self):
+        pass
 
     def refresh_relation(self, new_relation_list):
         self.relation_origin = new_relation_list
