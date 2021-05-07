@@ -22,6 +22,7 @@ class Message:
                    "register_key",  # register generating key
                    "fetch_key",
                    "close",
+                   "begin",
                    ""]
 
     def __init__(self, from_name="", to_name="", action_type="", content=""):

@@ -264,14 +264,16 @@ class Client:
 
         if login_result:
             print("request success.")
+            self.ms_indexer.load_message(us)
             self.state.set(csm.USER_ONLINE)
             self.encrypt_machine.start(us)
             self.login_window_destroy()
-            self.ms_indexer.load_message(us)
             friends_groups = info.split("+")[1]
             self.refresh_relation(friends_groups.split(","))
             self.chat_window()
             self.start_thread(self.scan_loop)
+            msg = ms.Message(us, "system", "begin", "")
+            self.socket_machine.send_request(msg)
         else:
             if info == "wrong_password":
                 self.password_entry.delete(0, 'end')

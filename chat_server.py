@@ -62,9 +62,6 @@ class Server:
             sql_query = f"update state set state=1 where uid={results[0][0]};"
             self.cursor.execute(sql_query)
             self.sql_db.commit()
-            blocked = self.query_blocked_msg(msg.from_name)
-            for line in blocked:
-                rs.MySocketClient.custom_send(sock, line)
 
     def logout(self, sock, name):
         del self.logged_name2sock[name]
@@ -312,6 +309,10 @@ class Server:
                     rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], msg)
                 else:
                     self.add_msg_queue(msg)
+        elif msg.action_type == "begin":
+            blocked = self.query_blocked_msg(msg.from_name)
+            for line in blocked:
+                rs.MySocketClient.custom_send(sock, line)
         else:
             pass
 

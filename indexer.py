@@ -22,6 +22,7 @@ class Indexer:
             file_pointer = open("./" + self.name + "/messages.json")
             self.messages = json.load(file_pointer)
             file_pointer.close()
+            self.total_message = int(self.messages["system_total"][0])
         except FileNotFoundError:
             pass
 
