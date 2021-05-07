@@ -108,6 +108,7 @@ class Client:
             # negotiate and save sender's aes128 key
             # send my aes128 key "respond pack"
             # update relation listbox
+            print(msg.content)
             keys = msg.content.split("_")
             from_rsa_public_key = keys[0].encode('utf-8')
             encrypted_aes_key = keys[1]
@@ -134,6 +135,7 @@ class Client:
             # negotiate and save sender's aes128 key
             # update relation listbox
             # notice user success
+            print("respond received,", msg.content)
             keys = msg.content.split('_')
             from_rsa_public_key = keys[0].encode('utf-8')
             encrypted_aes_key = keys[1]

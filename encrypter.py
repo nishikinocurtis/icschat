@@ -68,6 +68,8 @@ class ClientEncryptor:
         self.aes128_key = file_pointer.readline()
         file_pointer.close()
 
+        print("load key succeed.")
+
     def export_key(self):
         Path("./" + self.name).mkdir(exist_ok=True)
 

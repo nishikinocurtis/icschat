@@ -270,6 +270,7 @@ class Server:
             else:
                 self.add_msg_queue(msg)
         elif msg.action_type == "add_friend":  # transfer a change request
+            print("add_friend executing")
             state = self.check_online(msg.to_name)
             publickey = self.fetch_rsa_table(msg.from_name)
             new_msg = ms.Message(msg.from_name, msg.to_name, "change", publickey+"_"+msg.content)
