@@ -178,12 +178,15 @@ class Server:
             self.sql_db.rollback()
 
     def query_blocked_msg(self, name):
-        sql_query = f"select fromname, toname, actiontype, content from msgQueue where binary toname=\'{name}\';"
+        sql_query = f"select fromname, toname, actiontype, content, mid from msgQueue where binary toname=\'{name}\';"
         self.cursor.execute(sql_query)
         results = self.cursor.fetchall()
         blocked = []
         for msg in results:
             blocked.append(ms.Message(msg[0], msg[1], msg[2], msg[3]))
+            sql_query = f"delete from msgQueue where mid={msg[4]};"
+            self.cursor.execute(sql_query)
+            self.sql_db.commit()
         return blocked
 
     def fetch_uid_pair(self, username1, username2):
@@ -313,6 +316,7 @@ class Server:
             blocked = self.query_blocked_msg(msg.from_name)
             for line in blocked:
                 rs.MySocketClient.custom_send(sock, line)
+            print("blocked sent.")
         else:
             pass
 

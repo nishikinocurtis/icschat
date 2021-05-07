@@ -353,9 +353,12 @@ class Client:
         self.content_frame.pack(pady=10, padx=10, anchor='s')
 
     def change_current_relation(self, arg):
-        current_relation = self.relations_list.curselection()[0]
+        current_relation = self.relation_origin[self.relations_list.curselection()[0]]
+        print(current_relation)
         new_list = self.ms_indexer.get_message_list(current_relation)
         self.refresh_message(new_list)
+        print(new_list)
+        print("event called.")
 
     def refresh_relation(self, new_relation_list):
         self.relation_origin = new_relation_list
