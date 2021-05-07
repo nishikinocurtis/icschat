@@ -345,7 +345,7 @@ class Client:
         self.tool_frame.pack(pady=10, padx=10, anchor='nw')
         self.content_frame.pack(pady=10, padx=10, anchor='s')
 
-    def change_current_relation(self):
+    def change_current_relation(self, arg):
         current_relation = self.relations_list.curselection()[0]
         new_list = self.ms_indexer.get_message_list(current_relation)
         self.refresh_message(new_list)
