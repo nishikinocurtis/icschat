@@ -119,7 +119,7 @@ class Client:
             new_msg = ms.Message(self.username.get(), msg.from_name, "friend_respond", attachment)
             self.socket_machine.send_request(new_msg)
             self.refresh_relation(self.relation_origin + [msg.from_name])
-            self.notification(self.root_window, "New Friends: " + msg.from_name + "added!")
+            self.notification(self.root_window, "New Friends: " + msg.from_name + " added!")
         elif msg.action_type == "exchange":
             # decrypt with sender's aes128 key, when in group, the to_name attribute is group_name
             # update record and msg list
@@ -133,11 +133,10 @@ class Client:
             # update relation listbox
             # notice user success
             keys = msg.content.split('_')
-            from_rsa_public_key = keys[0]
+            from_rsa_public_key = keys[0].encode('utf-8')
             encrypted_aes_key = keys[1]
             signature = keys[2]
             from_rsa_public_key = enc.ClientEncryptor.any_rsa_instance(from_rsa_public_key)
-            signature = (signature, None)
             self.encrypt_machine.negotiate_aes(msg.from_name, from_rsa_public_key, encrypted_aes_key, signature)
             self.refresh_relation(self.relation_origin + [msg.from_name])
             self.notification(self.root_window, "Adding a friend successfully!")

@@ -280,6 +280,8 @@ class Server:
             pass
         elif msg.action_type == "friend_respond":  # transfer to origin
             state = self.check_online(msg.to_name)
+            publickey = self.fetch_rsa_table(msg.from_name)
+            new_msg = ms.Message(msg.from_name, msg.to_name, "friend_respond", publickey+"_"+msg.content)
             if state:
                 rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], msg)
             else:
