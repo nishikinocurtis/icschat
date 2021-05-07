@@ -70,7 +70,7 @@ class Client:
         self.relations_scroll.config(command=self.relations_list.yview)
         self.relations_list.grid(row=0, column=0, sticky=tk.N + tk.S + tk.E + tk.W)
 
-        self.relations_list.bind('<ButtonRelease-1>', self.change_current_relation)
+        self.relations_list.bind('<<ListboxSelect>>', self.change_current_relation)
 
         self.add_friend_button = tk.Button(self.relations_frame, text="+ Add Friend/Group", command=self.add_friend,
                                            width=25)
@@ -494,6 +494,7 @@ class Client:
         else:
             self.message_entry.delete(0, 'end')
             selected = self.relations_list.curselection()[0]
+            print(self.relation_origin[selected])
             display_content = Client.window_message_generator(self.username.get(), current_content)
             self.update_message(display_content)
             self.ms_indexer.add_new(self.relation_origin[selected], display_content)

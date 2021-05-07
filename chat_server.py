@@ -17,7 +17,7 @@ class Server:
         self.logged_name2sock = {}
         self.logged_sock2name = {}
         self.sql_db = sql.connect(host="localhost", user="curtis", password="Curtis.1020", database="ICSCHAT",
-                                  charset='utf8')
+                                  charset='utf8', autocommit=True)
         self.cursor = self.sql_db.cursor()
         print("SQL connection succeed.")
         self.socket_machine.socket.bind(self.socket_machine.SERVER)
@@ -38,6 +38,7 @@ class Server:
         print("login request received.")
         sql_query = f"select uid,username,password,publickey from users where binary username=\'{msg.from_name}\';"
         self.cursor.execute(sql_query)
+        self.sql_db.commit()
         results = self.cursor.fetchall()
         feedback = ms.Message("system", msg.from_name, "login_feedback", "")
         flg = False
@@ -95,6 +96,7 @@ class Server:
         if feedback.content == "success":
             u_query = f"select uid from users where binary username = \'{msg.from_name}\';"
             self.cursor.execute(u_query)
+            self.sql_db.commit()
             results = self.cursor.fetchall()
 
             try:
@@ -103,6 +105,7 @@ class Server:
                 self.sql_db.commit()
 
             except Exception as err:
+                print("state machine error.")
                 self.sql_db.rollback()
 
     # sql operation methods begin ---
@@ -116,15 +119,26 @@ class Server:
         else:
             return -1
 
-    def check_online(self, username):
+    def check_online(self, name):
         print("Checking Online.")
-        uid = f"select uid from users where binary username=\'{username}\';"
-        self.cursor.execute(uid)
-        results = self.cursor.fetchall()
+        new_cursor = self.sql_db.cursor()
+        uid = f"select uid, username from users where binary username=\'{name}\';"
+        print("checking:" + name)
+        print(uid)
+        new_cursor.execute(uid)
+        results = new_cursor.fetchall()
+        print("online checker", len(results))
+        self.sql_db.commit()
+        if len(results) == 0:
+            return False
         uid = results[0][0]
+        time.sleep(1)
         sql_query = f"select uid,state from state where uid=\'{uid}\';"  # to be modified
-        self.cursor.execute(sql_query)
-        results = self.cursor.fetchall()
+        new_cursor.execute(sql_query)
+        results = new_cursor.fetchall()
+        self.sql_db.commit()
+        new_cursor.close()
+        time.sleep(1)
         if results[0][1] == 1:
             return True
         else:
@@ -132,20 +146,22 @@ class Server:
 
     def add_msg_queue(self, msg):
         # ctime = time.strftime('%d.%m.%y,%H:%M', time.localtime())
-        sql = f"""insert into msgQueue(fromname,
-                  toname, actiontype, content, time)
-                  values (\'{msg.from_name}\', \'{msg.to_name}\', \'{msg.action_type}\', \'{msg.content}\', NOW())"""
+        sql_query = f"""insert into msgQueue(fromname, toname, actiontype, content, time) values (\'{msg.from_name}\', \'{msg.to_name}\', \'{msg.action_type}\', \'{msg.content}\', NOW());"""
+        new_cursor = self.sql_db.cursor()
         try:
-            self.cursor.execute(sql)
+            new_cursor.execute(sql_query)
             self.sql_db.commit()
         except Exception as err:
-            print("msgQueue inserting failed.")
+            print("msgQueue inserting failed.", err)
             self.sql_db.rollback()
+        new_cursor.close()
 
     def fetch_rsa_table(self, name):
         sql_query = f"select publickey from users where binary username=\'{name}\'"
         self.cursor.execute(sql_query)
+        self.sql_db.commit()
         results = self.cursor.fetchall()
+        time.sleep(2)
         return results[0][0]
 
     def query_relation(self, name):
@@ -193,11 +209,15 @@ class Server:
         uid1 = f"select uid from users where username=\'{username1}\';"
         uid2 = f"select uid from users where username=\'{username2}\';"
         self.cursor.execute(uid1)
+        self.sql_db.commit()
         uid1 = self.cursor.fetchall()
         uid1 = uid1[0][0]
+        time.sleep(0.5)
         self.cursor.execute(uid2)
+        self.sql_db.commit()
         uid2 = self.cursor.fetchall()
         uid2 = uid2[0][0]
+
         print("uid fetched.")
         return uid1, uid2
 
