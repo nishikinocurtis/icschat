@@ -77,7 +77,7 @@ class Client:
         self.add_friend_button.grid(row=1, column=0, columnspan=2, sticky=tk.W + tk.E + tk.S)
 
         self.messages_frame = tk.LabelFrame(self.content_frame, text="Messages", height=500)
-        self.disconnect_button = tk.Button(self.messages_frame, text="Disconnect from this User/Group", width=40)
+        self.disconnect_button = tk.Button(self.messages_frame, text="Disconnect from this User/Group", width=40, command=disconnect)
         self.disconnect_button.grid(row=0, column=0, columnspan=3, sticky=tk.E + tk.W)
 
         self.messages_scroll = tk.Scrollbar(self.messages_frame, orient=tk.VERTICAL)
@@ -164,7 +164,10 @@ class Client:
             pass
         elif msg.action_type == "disconnect":
             # update relation listbox
-            pass
+            name = msg.from_name
+            self.relation_origin.remove(name)
+            self.refresh_relation(self.relation_origin)
+            self.notification(self.root_window, name + "is disconnected.")
         elif msg.action_type == "fetch_key":
             self.encrypt_machine.rsa_keyring[msg.to_name] = bytes(msg.content, 'utf-8')
             print(self.encrypt_machine.rsa_keyring[msg.to_name])
@@ -321,6 +324,15 @@ class Client:
             return False, "no_publickey"
         else:
             return False, ""
+
+    def disconnect(self):
+        if len(self.relations_list.curselection()) == 0:
+            return
+        current_relation = self.relation_origin[self.relations_list.curselection()[0]]
+        msg = ms.Message(self.username.get(), current_relation, "disconnect", "")
+        self.socket_machine.send_request(msg)
+        self.relation_origin.remove(current_relation)
+        self.refresh_relation(self.relation_origin)
 
     def register_request_server(self, username, password):
         msg = ms.Message(username, "system", "register", password)
@@ -483,7 +495,8 @@ class Client:
             self.message_entry.delete(0, 'end')
             selected = self.relations_list.curselection()[0]
             display_content = Client.window_message_generator(self.username.get(), current_content)
-            self.update_message(Client.window_message_generator(self.username.get(), display_content))
+            self.update_message(display_content)
+            self.ms_indexer.add_new(display_content)
             current_content = self.encrypt_machine.aes_encrypt(current_content).decode('utf-8')
             msg = ms.Message(from_name=self.username.get(), to_name=self.relation_origin[selected], action_type="exchange", content=current_content)
             self.socket_machine.send_request(msg)
