@@ -119,6 +119,7 @@ class Client:
                 attachment = encrypted_aes_key + "_" + signature
                 new_msg = ms.Message(str(self.username.get()), msg.from_name, "friend_respond", attachment)
                 self.socket_machine.send_request(new_msg)
+                print("sent", new_msg)
                 self.refresh_relation(self.relation_origin + [msg.from_name])
                 self.notification(self.root_window, "New Friends: " + msg.from_name + " added!")
             else:
@@ -127,6 +128,7 @@ class Client:
             # decrypt with sender's aes128 key, when in group, the to_name attribute is group_name
             # update record and msg list
             actual_message = enc.ClientEncryptor.aes_decrypt(bytes(msg.content, 'utf-8'), self.encrypt_machine.keyring[msg.from_name])
+            actual_message = actual_message.decode('utf-8')
             display_message = Client.window_message_generator(msg.from_name, actual_message)
             self.ms_indexer.add_new(msg.from_name, display_message)
             if msg.from_name == self.relation_origin[self.relations_list.curselection()[0]]:
@@ -137,9 +139,9 @@ class Client:
             # notice user success
             print("respond received,", msg.content)
             keys = msg.content.split('_')
-            from_rsa_public_key = keys[0].encode('utf-8')
-            encrypted_aes_key = keys[1]
-            signature = keys[2]
+            # from_rsa_public_key = keys[0].encode('utf-8')
+            encrypted_aes_key = keys[0]
+            signature = keys[1]
             from_rsa_public_key = enc.ClientEncryptor.any_rsa_instance(self.encrypt_machine.rsa_keyring[msg.from_name])
             self.encrypt_machine.negotiate_aes(msg.from_name, from_rsa_public_key, encrypted_aes_key, signature)
             self.refresh_relation(self.relation_origin + [msg.from_name])
@@ -473,8 +475,9 @@ class Client:
         else:
             self.message_entry.delete(0, 'end')
             selected = self.relations_list.curselection()[0]
-            self.update_message(Client.window_message_generator(self.username.get(), current_content))
-            current_content = self.encrypt_machine.aes_encrypt(current_content).decode('utf-8')
+            display_content = Client.window_message_generator(self.username.get(), current_content)
+            self.update_message(Client.window_message_generator(self.username.get(), display_content))
+            current_content = self.encrypt_machine.aes_encrypt(bytes(current_content, 'utf-8')).decode('utf-8')
             msg = ms.Message(from_name=self.username.get(), to_name=self.relation_origin[selected], action_type="exchange", content=current_content)
             self.socket_machine.send_request(msg)
         # current_content enter file.

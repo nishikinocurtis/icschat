@@ -17,7 +17,7 @@ class MySocketClient:
 
         self.SIZE_SPEC = 5
 
-        self.CHAT_WAIT = 0.2
+        self.CHAT_WAIT = 0.5
 
     def recv_request(self):
         size = ''
@@ -96,6 +96,7 @@ class MySocketClient:
             return ms.Message(msg["from"], msg["to"], msg["head"], msg["content"])
         else:
             return ms.Message(action_type="error")
+
 
     def quit(self):
         self.socket.shutdown(socket.SHUT_RDWR)
