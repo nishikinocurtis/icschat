@@ -173,7 +173,11 @@ class Server:
 
     def add_publickey(self, msg):
         update = f"update users set publickey=\'{msg.content}\' where binary username=\'{msg.from_name}\'"
-        self.cursor.execute(update)
+        try:
+            self.cursor.execute(update)
+            self.sql_db.commit()
+        except:
+            self.sql_db.rollback()
 
     def query_blocked_msg(self, name):
         sql_query = f"select fromname, toname, actiontype, content from msgQueue where binary toname=\'{name}\';"
@@ -184,6 +188,39 @@ class Server:
             blocked.append(ms.Message(msg[0], msg[1], msg[2], msg[3]))
         return blocked
 
+    def fetch_uid_pair(self, username1, username2):
+        uid1 = f"select uid from users where username=\'{username1}\';"
+        uid2 = f"select uid from users where username=\'{username2}\';"
+        self.cursor.execute(uid1)
+        uid1 = self.cursor.fetchall()
+        uid1 = uid1[0][0]
+        self.cursor.execute(uid2)
+        uid2 = self.cursor.fetchall()
+        uid2 = uid2[0][0]
+        return uid1, uid2
+
+    def create_relation(self, username1, username2):
+        uid1, uid2 = self.fetch_uid_pair(username1, username2)
+        if uid1 > uid2:
+            uid2, uid1 = uid1, uid2
+            username2, username1 = username1, username2
+        inserting = f"insert into friendrelation (uid1, uid2, uid1name, uid2name) values ({uid1}, {uid2}, \'{username1}\', \'{username2}\');"
+        try:
+            self.cursor.execute(inserting)
+            self.sql_db.commit()
+        except:
+            self.sql_db.rollback()
+
+    def delete_relation(self, username1, username2):
+        uid1, uid2 = self.fetch_uid_pair(username1, username2)
+        if uid1 > uid2:
+            uid2, uid1 = uid1, uid2
+        deleting = f"delete from friendrelation where uid1={uid1}, uid2={uid2};"
+        try:
+            self.cursor.execute(deleting)
+            self.sql_db.commit()
+        except:
+            self.sql_db.rollback()
     # sql operation methods end ---
 
     def remove_sock(self, sock):
@@ -242,7 +279,12 @@ class Server:
         elif msg.action_type == "add_group":  # transfer a negotiate request
             pass
         elif msg.action_type == "friend_respond":  # transfer to origin
-            rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], msg)
+            state = self.check_online(msg.to_name)
+            if state:
+                rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], msg)
+            else:
+                self.add_msg_queue(msg)
+            self.create_relation(msg.from_name, msg.to_name)
         elif msg.action_type == "key":  # transfer to origin
             pass
         elif msg.action_type == "fetch_key":
@@ -251,6 +293,16 @@ class Server:
             rs.MySocketClient.custom_send(sock, new_msg)
         elif msg.action_type == "logout":
             self.logout(sock, msg.from_name)
+        elif msg.action_type == "disconnect":
+            if msg.to_name[0] == "(":
+                pass
+            else:
+                state = self.check_online(msg.to_name)
+                self.delete_relation(msg.from_name, msg.to_name)
+                if state:
+                    rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], msg)
+                else:
+                    self.add_msg_queue(msg)
         else:
             pass
 

@@ -6,6 +6,7 @@ Created on Sat Jul  5 11:38:58 2014
 """
 import pickle
 
+
 class Index:
     def __init__(self, name):
         self.name = name
@@ -47,6 +48,7 @@ class Index:
             indices = self.index[term]
             msgs = [(i, self.msgs[i]) for i in indices]
         return msgs
+
 
 class PIndex(Index):
     def __init__(self, name):
