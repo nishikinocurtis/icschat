@@ -77,7 +77,7 @@ class Client:
         self.add_friend_button.grid(row=1, column=0, columnspan=2, sticky=tk.W + tk.E + tk.S)
 
         self.messages_frame = tk.LabelFrame(self.content_frame, text="Messages", height=500)
-        self.disconnect_button = tk.Button(self.messages_frame, text="Disconnect from this User/Group", width=40, command=disconnect)
+        self.disconnect_button = tk.Button(self.messages_frame, text="Disconnect from this User/Group", width=40, command=self.disconnect)
         self.disconnect_button.grid(row=0, column=0, columnspan=3, sticky=tk.E + tk.W)
 
         self.messages_scroll = tk.Scrollbar(self.messages_frame, orient=tk.VERTICAL)
