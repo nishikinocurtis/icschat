@@ -50,6 +50,8 @@ class ClientEncryptor:
     def load_key(self):
         file_pointer = open(self.filename_keyring, 'rb')
         self.keyring = pickle.load(file_pointer)
+        for p in self.keyring.keys():
+            print(p)
         file_pointer.close()
 
         file_pointer = open(self.filename_private, 'rb')
@@ -106,8 +108,9 @@ class ClientEncryptor:
 
     @staticmethod
     def pad(s):  # credit. Francesco de Guytenaere
-        return s + (ClientEncryptor.BLOCK_SIZE - len(s) % ClientEncryptor.BLOCK_SIZE) \
+        p = s + (ClientEncryptor.BLOCK_SIZE - len(s) % ClientEncryptor.BLOCK_SIZE) \
                     * chr(ClientEncryptor.BLOCK_SIZE - len(s) % ClientEncryptor.BLOCK_SIZE)
+        return p.encode('utf-8')
 
     @staticmethod
     def un_pad(s):  # credit. Francesco de Guytenaere

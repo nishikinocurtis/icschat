@@ -384,6 +384,7 @@ class Client:
     def logout_request(self):
         self.ms_indexer.save_message()
         self.state.set(csm.USER_OFFLINE)
+        self.encrypt_machine.export_key()
         msg = ms.Message(self.username.get(), "system", "logout", "")
         self.socket_machine.send_request(msg)
         self.socket_machine.quit()
