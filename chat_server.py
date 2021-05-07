@@ -209,6 +209,7 @@ class Server:
             self.cursor.execute(inserting)
             self.sql_db.commit()
         except:
+            print("relation error.")
             self.sql_db.rollback()
 
     def delete_relation(self, username1, username2):
@@ -279,14 +280,17 @@ class Server:
         elif msg.action_type == "add_group":  # transfer a negotiate request
             pass
         elif msg.action_type == "friend_respond":  # transfer to origin
+            print("respond received.")
             state = self.check_online(msg.to_name)
             publickey = self.fetch_rsa_table(msg.from_name)
             new_msg = ms.Message(msg.from_name, msg.to_name, "friend_respond", publickey+"_"+msg.content)
             if state:
-                rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], msg)
+                rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], new_msg)
+                print("friend respond sent.")
             else:
-                self.add_msg_queue(msg)
+                self.add_msg_queue(new_msg)
             self.create_relation(msg.from_name, msg.to_name)
+            print("relation added.")
         elif msg.action_type == "key":  # transfer to origin
             pass
         elif msg.action_type == "fetch_key":
