@@ -496,7 +496,7 @@ class Client:
             selected = self.relations_list.curselection()[0]
             display_content = Client.window_message_generator(self.username.get(), current_content)
             self.update_message(display_content)
-            self.ms_indexer.add_new(display_content)
+            self.ms_indexer.add_new(self.relation_origin[selected], display_content)
             current_content = self.encrypt_machine.aes_encrypt(current_content).decode('utf-8')
             msg = ms.Message(from_name=self.username.get(), to_name=self.relation_origin[selected], action_type="exchange", content=current_content)
             self.socket_machine.send_request(msg)
