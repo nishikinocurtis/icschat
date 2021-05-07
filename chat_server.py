@@ -120,6 +120,7 @@ class Server:
             return -1
 
     def check_online(self, username):
+        print("Checking Online.")
         uid = f"select uid from users where binary username=\'{username}\';"
         self.cursor.execute(uid)
         results = self.cursor.fetchall()

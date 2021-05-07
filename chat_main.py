@@ -131,7 +131,8 @@ class Client:
             actual_message = actual_message.decode('utf-8')
             display_message = Client.window_message_generator(msg.from_name, actual_message)
             self.ms_indexer.add_new(msg.from_name, display_message)
-            if msg.from_name == self.relation_origin[self.relations_list.curselection()[0]]:
+            if len(self.relations_list.curselection()) > 0\
+               and msg.from_name == self.relation_origin[self.relations_list.curselection()[0]]:
                 self.update_message(display_message)
         elif msg.action_type == "friend_respond":
             # negotiate and save sender's aes128 key
