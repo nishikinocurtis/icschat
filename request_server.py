@@ -17,7 +17,7 @@ class MySocketClient:
 
         self.SIZE_SPEC = 5
 
-        self.CHAT_WAIT = 0.5
+        self.CHAT_WAIT = 1.0
 
     def recv_request(self):
         size = ''

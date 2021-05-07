@@ -59,7 +59,7 @@ class Server:
             self.new_clients.remove(sock)
             self.logged_name2sock[msg.from_name] = sock
             self.logged_sock2name[sock] = msg.from_name
-            sql_query = f"update state set state=1 where uid={results[0][0]}"
+            sql_query = f"update state set state=1 where uid={results[0][0]};"
             self.cursor.execute(sql_query)
             self.sql_db.commit()
             blocked = self.query_blocked_msg(msg.from_name)
@@ -72,7 +72,7 @@ class Server:
         self.all_sockets.remove(sock)
         sock.close()
         uid = self.get_uid_by_name(name)
-        sql_query = f"update state set state=0 where uid=\'{uid}\';"
+        sql_query = f"update state set state=0 where uid={uid};"
         self.cursor.execute(sql_query)
         self.sql_db.commit()
 
@@ -197,6 +197,7 @@ class Server:
         self.cursor.execute(uid2)
         uid2 = self.cursor.fetchall()
         uid2 = uid2[0][0]
+        print("uid fetched.")
         return uid1, uid2
 
     def create_relation(self, username1, username2):
@@ -204,6 +205,7 @@ class Server:
         if uid1 > uid2:
             uid2, uid1 = uid1, uid2
             username2, username1 = username1, username2
+        print("try adding data.")
         inserting = f"insert into friendrelation (uid1, uid2, uid1name, uid2name) values ({uid1}, {uid2}, \'{username1}\', \'{username2}\');"
         try:
             self.cursor.execute(inserting)
@@ -273,7 +275,7 @@ class Server:
             print("add_friend executing")
             state = self.check_online(msg.to_name)
             publickey = self.fetch_rsa_table(msg.from_name)
-            new_msg = ms.Message(msg.from_name, msg.to_name, "change", publickey+"_"+msg.content)
+            new_msg = ms.Message(msg.from_name, msg.to_name, "change", publickey+"___"+msg.content)
             if state:
                 rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], new_msg)
             else:

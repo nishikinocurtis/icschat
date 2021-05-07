@@ -109,14 +109,14 @@ class Client:
             # send my aes128 key "respond pack"
             # update relation listbox
             print(msg.content)
-            keys = msg.content.split("_")
+            keys = msg.content.split("___")
             from_rsa_public_key = keys[0].encode('utf-8')
             encrypted_aes_key = keys[1]
             signature = keys[2]
             from_rsa_public_key = enc.ClientEncryptor.any_rsa_instance(from_rsa_public_key)
             if self.encrypt_machine.negotiate_aes(msg.from_name, from_rsa_public_key, encrypted_aes_key, signature):
                 encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack(from_rsa_public_key)
-                attachment = encrypted_aes_key + "_" + signature
+                attachment = encrypted_aes_key + "___" + signature
                 new_msg = ms.Message(str(self.username.get()), msg.from_name, "friend_respond", attachment)
                 self.socket_machine.send_request(new_msg)
                 print("sent", new_msg)
@@ -138,7 +138,7 @@ class Client:
             # update relation listbox
             # notice user success
             print("respond received,", msg.content)
-            keys = msg.content.split('_')
+            keys = msg.content.split('___')
             # from_rsa_public_key = keys[0].encode('utf-8')
             encrypted_aes_key = keys[0]
             signature = keys[1]
@@ -419,7 +419,7 @@ class Client:
         else:
             rsa_public_key = enc.ClientEncryptor.any_rsa_instance(self.encrypt_machine.get_rsa_by_name(name))
             encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack(rsa_public_key)  # protocol: extract signature, and make it a tuple when receving.
-            attachment = encrypted_aes_key + "_" + signature
+            attachment = encrypted_aes_key + "___" + signature
             msg = ms.Message(str(self.username.get()), name, "add_friend", attachment)
             self.socket_machine.send_request(msg)  # maybe need special port ?
 
@@ -477,7 +477,7 @@ class Client:
             selected = self.relations_list.curselection()[0]
             display_content = Client.window_message_generator(self.username.get(), current_content)
             self.update_message(Client.window_message_generator(self.username.get(), display_content))
-            current_content = self.encrypt_machine.aes_encrypt(bytes(current_content, 'utf-8')).decode('utf-8')
+            current_content = self.encrypt_machine.aes_encrypt(current_content).decode('utf-8')
             msg = ms.Message(from_name=self.username.get(), to_name=self.relation_origin[selected], action_type="exchange", content=current_content)
             self.socket_machine.send_request(msg)
         # current_content enter file.
