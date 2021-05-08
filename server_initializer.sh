@@ -18,3 +18,5 @@ mysql -u$USER -p$PASSWORD -e "CREATE TABLE 'state' ( \
                          ) ENGINE=InnoDB DEFAULT CHARSET=utf8;"
 mysql -u$USER -p$PASSWORD -e ""
 
+# unfinished!!!
+
