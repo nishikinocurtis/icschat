@@ -325,9 +325,12 @@ class Client:
             self.login_window_destroy()
             friends_groups = info.split("+")[1]
             friends_groups_list = friends_groups.split(",")
-            friends_groups_list.remove('')
-            print(friends_groups,"and", friends_groups.split(","))
-            self.refresh_relation(friends_groups.split(","))
+            try:
+                friends_groups_list.remove('')
+            except ValueError as err:
+                pass
+            print(friends_groups, "and", friends_groups.split(","))
+            self.refresh_relation(friends_groups_list)  # there will be always one, at most ''.
             print("rlist:", self.relation_origin)
             self.chat_window()
             self.start_thread(self.scan_loop)
