@@ -302,6 +302,16 @@ class Server:
             members.append(member[1])
         return members
 
+    def enroll(self, username, name):
+        gid = self.fetch_gid(name)
+        uid, uid2 = self.fetch_uid_pair(username, "")
+        inserting = f"insert into grouprelation (uid, gid) values ({uid}, {gid});"
+        try:
+            self.cursor.execute(inserting)
+            self.sql_db.commit()
+        except:
+            self.sql_db.rollback()
+
     # sql operation methods end ---
 
     def remove_sock(self, sock):
@@ -390,8 +400,14 @@ class Server:
                     rs.MySocketClient.custom_send(sock, new_msg)
                     new_msg = ms.Message("system", msg.from_name, "group_respond", "finished")
                     rs.MySocketClient.custom_send(sock, new_msg)
+            elif msg.content == "second_trial":
+                # create group relation
+                self.enroll(msg.from_name, msg.to_name)
+                new_msg = ms.Message("system", msg.to_name, "group_respond", "success")
+                rs.MySocketClient.custom_send(sock, new_msg)
             else:
-                new_msg = ms.Message(self.logged_sock2name[sock], msg.from_name, "negotiate", msg.content)  # username, group name, negotiate pack.
+                rsa_key = self.fetch_rsa_table(msg.from_name)
+                new_msg = ms.Message(self.logged_sock2name[sock], msg.from_name, "negotiate", rsa_key + "___" + msg.content)  # username, group name, negotiate pack.
                 state = self.check_online(msg.to_name)
                 if state:
                     self.socket_machine.custom_send(self.logged_name2sock[msg.to_name], new_msg)

@@ -157,6 +157,8 @@ class Client:
                 self.encrypt_machine.negotiate_aes(msg.from_name, from_rsa_public_key, encrypted_aes_key, signature)
                 self.refresh_relation(self.relation_origin + [msg.from_name])
                 self.notification(self.root_window, "Adding a friend successfully!")
+                if msg.from_name in self.encrypt_machine.rsa_keyring.keys():
+                    del self.encrypt_machine.rsa_keyring[msg.from_name]  # security
         elif msg.action_type == "group_respond":
             if msg.from_name == "system":
                 if msg.content == "new":
@@ -169,6 +171,12 @@ class Client:
                     self.notification(self.root_window, "Success. Please waiting for fetching keys.")
                 elif msg.content == "finished":
                     self.notification(self.root_window, "Finished, please enroll again.")
+                elif msg.content == "success":
+                    # all processes finished, refresh GUI.
+                    self.refresh_relation(self.relation_origin + [msg.to_name])
+                    self.notification(self.root_window, "Enrolling in a group successfully!")
+                    if msg.to_name in self.encrypt_machine.rsa_keyring.keys():
+                        del self.encrypt_machine.rsa_keyring[msg.to_name]  # security
                 else:
                     self.encrypt_machine.rsa_keyring[msg.to_name] = msg.content
             else:
@@ -176,11 +184,30 @@ class Client:
                 # fetch online member's aes128 key
                 pass
         elif msg.action_type == "negotiate":
-            # send my aes128key
-            pass
+            # new member tries to exchange aes_key.
+            if msg.from_name in self.encrypt_machine.keyring.keys():
+                pass
+            else:
+                keys = msg.content.split("___")
+                from_rsa_public_key = keys[0].encode('utf-8')
+                encrypted_aes_key = keys[1]
+                signature = keys[2]
+                from_rsa_public_key = enc.ClientEncryptor.any_rsa_instance(from_rsa_public_key)
+                if self.encrypt_machine.negotiate_aes(msg.from_name, from_rsa_public_key, encrypted_aes_key, signature):
+                    encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack(from_rsa_public_key)
+                    attachment = encrypted_aes_key + "___" + signature
+                    new_msg = ms.Message(str(self.username.get()), msg.from_name, "key", attachment)
+                    self.socket_machine.send_request(new_msg)
+                    print("sent", new_msg)
+                    if msg.to_name in self.encrypt_machine.rsa_keyring.keys():
+                        del self.encrypt_machine.rsa_keyring[msg.to_name]
         elif msg.action_type == "key":
-            # previous offline members send their keys to me
-            pass
+            # members send their keys to me after my request
+            keys = msg.content.split('___')
+            encrypted_aes_key = keys[0]
+            signature = keys[1]
+            from_rsa_public_key = enc.ClientEncryptor.any_rsa_instance(self.encrypt_machine.rsa_keyring[msg.from_name])
+            self.encrypt_machine.negotiate_aes(msg.from_name, from_rsa_public_key, encrypted_aes_key, signature)
         elif msg.action_type == "disconnect":
             # update relation listbox
             name = msg.from_name
@@ -475,10 +502,18 @@ class Client:
     def add_group_request(self, name):
         print("group request called")
         if name in self.encrypt_machine.rsa_keyring.keys():
-            msg = ms.Message((str(self.username.get()), name, "add_group", "second_trial"))
+            # msg = ms.Message((str(self.username.get()), name, "add_group", "second_trial"))
+            # self.socket_machine.send_request(msg)
+            members = self.encrypt_machine.rsa_keyring[name].split(",")
+            for member in members:
+                if member != "":
+                    rsa_public_key = enc.ClientEncryptor.any_rsa_instance(self.encrypt_machine.get_rsa_by_name(member))
+                    encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack(rsa_public_key)
+                    attachment = encrypted_aes_key + "___" + signature
+                    msg = ms.Message(name, member, "add_group", attachment)
+                    self.socket_machine.send_request(msg)
+            msg = ms.Message(self.username.get(), name, "add_group", "second_trial")
             self.socket_machine.send_request(msg)
-        # encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack()  # protocol: extract signature, and make it a tuple when receving.
-        # attachment = encrypted_aes_key + b"_" + signature[0]
         else:
             msg = ms.Message(str(self.username.get()), name, "add_group", "first_trial")
             self.socket_machine.send_request(msg)  # maybe need special port ?
@@ -527,8 +562,7 @@ class Client:
             return
         else:
             self.message_entry.delete(0, 'end')
-            selected = self.relations_list.curselection()[0]
-            print(self.relation_origin[selected])
+            # groups and friends are the same, server is responsible for transferring.
             display_content = Client.window_message_generator(self.username.get(), current_content)
             self.update_message(display_content)
             self.ms_indexer.add_new(self.current_target, display_content)
