@@ -324,6 +324,8 @@ class Client:
             self.encrypt_machine.start(us)
             self.login_window_destroy()
             friends_groups = info.split("+")[1]
+            friends_groups_list = friends_groups.split(",")
+            friends_groups_list.remove('')
             print(friends_groups,"and", friends_groups.split(","))
             self.refresh_relation(friends_groups.split(","))
             print("rlist:", self.relation_origin)
