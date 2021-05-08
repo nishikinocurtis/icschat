@@ -179,8 +179,7 @@ class Server:
             n = len(relation_list)
             for i in range(n):
                 relation_string += relation_list[i][0]
-                if i < n - 1:
-                    relation_string += ","
+                relation_string += ","
         # relation_list should be added
         relation_string += ""
         return relation_string

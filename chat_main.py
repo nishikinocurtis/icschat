@@ -324,7 +324,9 @@ class Client:
             self.encrypt_machine.start(us)
             self.login_window_destroy()
             friends_groups = info.split("+")[1]
+            print(friends_groups,"and", friends_groups.split(","))
             self.refresh_relation(friends_groups.split(","))
+            print("rlist:", self.relation_origin)
             self.chat_window()
             self.start_thread(self.scan_loop)
             msg = ms.Message(us, "system", "begin", "")
@@ -422,6 +424,7 @@ class Client:
 
     def change_current_relation(self, arg):
         if len(self.relations_list.curselection()) > 0:
+            print("origin:", self.relation_origin)
             current_relation = self.relation_origin[self.relations_list.curselection()[0]]
             print(current_relation)
             new_list = self.ms_indexer.get_message_list(current_relation)
