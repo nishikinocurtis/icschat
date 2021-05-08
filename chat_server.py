@@ -239,7 +239,7 @@ class Server:
         uid1, uid2 = self.fetch_uid_pair(username1, username2)
         if uid1 > uid2:
             uid2, uid1 = uid1, uid2
-        deleting = f"delete from friendrelation where uid1={uid1}, uid2={uid2};"
+        deleting = f"delete from friendrelation where uid1={uid1} and uid2={uid2};"
         try:
             self.cursor.execute(deleting)
             self.sql_db.commit()

@@ -69,6 +69,7 @@ class Client:
                                          yscrollcommand=self.relations_scroll.set, height=21, width=25)
         self.relations_scroll.config(command=self.relations_list.yview)
         self.relations_list.grid(row=0, column=0, sticky=tk.N + tk.S + tk.E + tk.W)
+        self.current_target = ""
 
         self.relations_list.bind('<<ListboxSelect>>', self.change_current_relation)
 
@@ -365,12 +366,15 @@ class Client:
         self.content_frame.pack(pady=10, padx=10, anchor='s')
 
     def change_current_relation(self, arg):
-        current_relation = self.relation_origin[self.relations_list.curselection()[0]]
-        print(current_relation)
-        new_list = self.ms_indexer.get_message_list(current_relation)
-        self.refresh_message(new_list)
-        print(new_list)
-        print("event called.")
+        if len(self.relations_list.curselection()) > 0:
+            current_relation = self.relation_origin[self.relations_list.curselection()[0]]
+            print(current_relation)
+            new_list = self.ms_indexer.get_message_list(current_relation)
+            self.refresh_message(new_list)
+            print(new_list)
+            print("event called.")
+        else:
+            pass
 
     def refresh_relation(self, new_relation_list):
         self.relation_origin = new_relation_list
@@ -497,9 +501,9 @@ class Client:
             print(self.relation_origin[selected])
             display_content = Client.window_message_generator(self.username.get(), current_content)
             self.update_message(display_content)
-            self.ms_indexer.add_new(self.relation_origin[selected], display_content)
+            self.ms_indexer.add_new(self.current_target, display_content)
             current_content = self.encrypt_machine.aes_encrypt(current_content).decode('utf-8')
-            msg = ms.Message(from_name=self.username.get(), to_name=self.relation_origin[selected], action_type="exchange", content=current_content)
+            msg = ms.Message(from_name=self.username.get(), to_name=self.current_target, action_type="exchange", content=current_content)
             self.socket_machine.send_request(msg)
         # current_content enter file.
         # fetch current users
