@@ -274,7 +274,9 @@ class Client:
         new_password_entry = tk.Entry(register_pop_up, textvariable=new_password, show="*")
 
         def registering():
-            self.register_request(new_username.get(), new_password.get())
+            us = new_username.get()
+            pwd = enc.ClientEncryptor.hash_text(new_password.get())
+            self.register_request(us, pwd)
             new_password_entry.delete(0, 'end')
             new_username_entry.delete(0, 'end')
 
@@ -310,7 +312,7 @@ class Client:
 
     def login_request(self):
         us = str(self.username.get())
-        pwd = str(self.password.get())
+        pwd = enc.ClientEncryptor.hash_text(str(self.password.get()))
 
         login_result, info = self.login_request_server(us, pwd)
 
