@@ -266,26 +266,41 @@ class Server:
             uid, uid2 = self.fetch_uid_pair(name1, "")
             gid = self.fetch_gid(name2)
             if gid == -1:
-                return -1
+                return -1  # group not exist
             sql_query = f"select uid, gid from grouprelation where uid={uid} and gid={gid};"
             length = self.cursor.execute(sql_query)
+            results = self.cursor.fetchall()
             if length == 0:
-                return 0
+                return 0  # not in group
             else:
-                return -1
+                return 1  # in group
+
         else:
             uid1, uid2 = self.fetch_uid_pair(name1, name2)
             if uid2 == -1:
-                return -1
+                return -1  # friend not exist
             if uid1 > uid2:
                 uid2, uid1 = uid1, uid2
             sql_query = f"select pkey from friendrelation where uid1={uid1} and uid2={uid2};"
             self.cursor.execute(sql_query)
             results = self.cursor.fetchall()
             if len(results) > 0:
-                return 1
+                return 1  # already friend
             else:
-                return 0
+                return 0  # not friend yet
+
+    def get_group_members(self, name):
+        members = []
+        gid = self.fetch_gid(name)
+        sql_query = f"""select grouprelation.uid, users.username
+                        from grouprelation where gid={gid}
+                        left join users
+                        on grouprelation.uid=users.uid;"""
+        self.cursor.execute(sql_query)
+        results = self.cursor.fetchall()
+        for member in results:
+            members.append(member[1])
+        return members
 
     # sql operation methods end ---
 
@@ -352,13 +367,36 @@ class Server:
                 new_msg = ms.Message(msg.to_name, msg.from_name, "friend_respond", "not_exist")
                 rs.MySocketClient.custom_send(sock, new_msg)
         elif msg.action_type == "add_group":  # transfer a negotiate request
-            relation_state = self.check_relation(msg.from_name, msg.to_name)
-            if relation_state == 1:
-                new_msg = ms.Message("system", msg.from_name, "group_respond", "duplicate")
-                rs.MySocketClient.custom_send(sock, new_msg)
-            elif relation_state == -1:
-                pass
-
+            if msg.content == "first_trial":
+                relation_state = self.check_relation(msg.from_name, msg.to_name)
+                if relation_state == 1:
+                    new_msg = ms.Message("system", msg.from_name, "group_respond", "duplicate")
+                    rs.MySocketClient.custom_send(sock, new_msg)
+                elif relation_state == -1:
+                    new_msg = ms.Message("system", msg.from_name, "group_respond", "not_exist")
+                    rs.MySocketClient.custom_send(sock, new_msg)
+                elif relation_state == 0:
+                    all_members = self.get_group_members(msg.to_name)
+                    new_msg = ms.Message("system", msg.from_name, "group_respond", "waiting")
+                    rs.MySocketClient.custom_send(sock, new_msg)
+                    for member in all_members:
+                        rsa_key = self.fetch_rsa_table(member)
+                        new_msg = ms.Message(member, msg.from_name, "fetch_key", rsa_key)
+                        rs.MySocketClient.custom_send(sock, new_msg)
+                    member_list = ""
+                    for member in all_members:
+                        member_list += member + ","
+                    new_msg = ms.Message("system", msg.to_name, "group_respond", member_list)
+                    rs.MySocketClient.custom_send(sock, new_msg)
+                    new_msg = ms.Message("system", msg.from_name, "group_respond", "finished")
+                    rs.MySocketClient.custom_send(sock, new_msg)
+            else:
+                new_msg = ms.Message(self.logged_sock2name[sock], msg.from_name, "negotiate", msg.content)  # username, group name, negotiate pack.
+                state = self.check_online(msg.to_name)
+                if state:
+                    self.socket_machine.custom_send(self.logged_name2sock[msg.to_name], new_msg)
+                else:
+                    self.add_msg_queue(new_msg)
         elif msg.action_type == "friend_respond":  # transfer to origin
             print("respond received.")
             state = self.check_online(msg.to_name)

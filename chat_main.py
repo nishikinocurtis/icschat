@@ -144,6 +144,8 @@ class Client:
             print("respond received,", msg.content)
             if msg.content == "duplicate":
                 self.notification(self.root_window, msg.from_name + " has already been your friend.")
+            elif msg.content == "not_exist":
+                self.notification(self.root_window, msg.from_name + " does not exist in the database.")
             else:
                 keys = msg.content.split('___')
                 # from_rsa_public_key = keys[0].encode('utf-8')
@@ -154,10 +156,19 @@ class Client:
                 self.refresh_relation(self.relation_origin + [msg.from_name])
                 self.notification(self.root_window, "Adding a friend successfully!")
         elif msg.action_type == "group_respond":
-            if msg.content == "new":
-                # update relation listbox
-                # notice user creating a group
-                pass
+            if msg.from_name == "system":
+                if msg.content == "new":
+                    # update relation listbox
+                    # notice user creating a group
+                    pass
+                elif msg.content == "duplicate":
+                    self.notification(self.root_window, "You have already been in " + msg.from_name)
+                elif msg.content == "waiting":
+                    self.notification(self.root_window, "Success. Please waiting for fetching keys.")
+                elif msg.content == "finished":
+                    self.notification(self.root_window, "Finished, please enroll again.")
+                else:
+                    self.encrypt_machine.rsa_keyring[msg.to_name] = msg.content
             else:
                 # update relation listbox
                 # fetch online member's aes128 key
@@ -461,10 +472,14 @@ class Client:
 
     def add_group_request(self, name):
         print("group request called")
+        if name in self.encrypt_machine.rsa_keyring.keys():
+            msg = ms.Message((str(self.username.get()), name, "add_group", "second_trial"))
+            self.socket_machine.send_request(msg)
         # encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack()  # protocol: extract signature, and make it a tuple when receving.
         # attachment = encrypted_aes_key + b"_" + signature[0]
-        msg = ms.Message(str(self.username.get()), name, "add_group", "")
-        self.socket_machine.send_request(msg)  # maybe need special port ?
+        else:
+            msg = ms.Message(str(self.username.get()), name, "add_group", "first_trial")
+            self.socket_machine.send_request(msg)  # maybe need special port ?
 
     def add_friend(self):  # raise new window
         add_window = tk.Toplevel(self.root_window)
