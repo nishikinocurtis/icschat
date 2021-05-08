@@ -19,6 +19,7 @@ class Client:
         self.state = csm.ClientState()
         root.title("ICS Chat")
         root.geometry("600x520+16+9")
+        root.iconbitmap("./chat-code.ico")
 
         self.ms_indexer = idx.Indexer()
         self.socket_machine = rs.MySocketClient(self.args)
