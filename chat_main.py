@@ -276,7 +276,7 @@ class Client:
 
         def registering():
             us = new_username.get()
-            pwd = enc.ClientEncryptor.hash_text(new_password.get())
+            pwd = enc.ClientEncryptor.hash_text(bytes(new_password.get(), 'utf-8'))
             self.register_request(us, pwd)
             new_password_entry.delete(0, 'end')
             new_username_entry.delete(0, 'end')
@@ -313,7 +313,7 @@ class Client:
 
     def login_request(self):
         us = str(self.username.get())
-        pwd = enc.ClientEncryptor.hash_text(str(self.password.get()))
+        pwd = enc.ClientEncryptor.hash_text(bytes(self.password.get(), 'utf-8'))
 
         login_result, info = self.login_request_server(us, pwd)
 
