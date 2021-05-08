@@ -125,6 +125,8 @@ class Client:
                 print("sent", new_msg)
                 self.refresh_relation(self.relation_origin + [msg.from_name])
                 self.notification(self.root_window, "New Friends: " + msg.from_name + " added!")
+                if msg.from_name in self.encrypt_machine.rsa_keyring.keys():
+                    del self.encrypt_machine.rsa_keyring[msg.from_name]  # security, forcing refreshing public key.
             else:
                 print("Negotiation error.")
         elif msg.action_type == "exchange":
