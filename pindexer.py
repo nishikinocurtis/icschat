@@ -44,7 +44,7 @@ class Index:
                                      
     def search(self, term):
         msgs = []
-        if (term in self.index.keys()):
+        if term in self.index.keys():
             indices = self.index[term]
             msgs = [(i, self.msgs[i]) for i in indices]
         return msgs
