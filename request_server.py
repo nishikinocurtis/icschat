@@ -4,6 +4,7 @@ import message as ms
 
 sz_spec = 5
 
+
 class MySocketClient:
 
     def __init__(self, args=None):
@@ -96,7 +97,6 @@ class MySocketClient:
             return ms.Message(msg["from"], msg["to"], msg["head"], msg["content"])
         else:
             return ms.Message(action_type="error")
-
 
     def quit(self):
         self.socket.shutdown(socket.SHUT_RDWR)

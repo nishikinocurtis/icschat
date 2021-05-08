@@ -213,13 +213,28 @@ class Server:
         uid1 = self.cursor.fetchall()
         uid1 = uid1[0][0]
         time.sleep(0.5)
-        self.cursor.execute(uid2)
-        self.sql_db.commit()
-        uid2 = self.cursor.fetchall()
-        uid2 = uid2[0][0]
-
+        if username2 != "":
+            self.cursor.execute(uid2)
+            self.sql_db.commit()
+            uid2 = self.cursor.fetchall()
+            if len(uid2) == 0:  # target not exist.
+                return -1
+            else:
+                uid2 = uid2[0][0]
+        else:
+            uid2 = -1  # for group, empty meaning.
         print("uid fetched.")
         return uid1, uid2
+
+    def fetch_gid(self, name):
+        sql_query = f"select gid from groupinfo where groupname=\'{name}\'"
+        self.cursor.execute(sql_query)
+        results = self.cursor.fetchall()
+        self.sql_db.commit()
+        if len(results) == 0:
+            return -1
+        else:
+            return results[0][0]
 
     def create_relation(self, username1, username2):
         uid1, uid2 = self.fetch_uid_pair(username1, username2)
@@ -248,18 +263,29 @@ class Server:
 
     def check_relation(self, name1, name2):
         if name2[0] == "(":
-            pass
+            uid, uid2 = self.fetch_uid_pair(name1, "")
+            gid = self.fetch_gid(name2)
+            if gid == -1:
+                return -1
+            sql_query = f"select uid, gid from grouprelation where uid={uid} and gid={gid};"
+            length = self.cursor.execute(sql_query)
+            if length == 0:
+                return 0
+            else:
+                return -1
         else:
             uid1, uid2 = self.fetch_uid_pair(name1, name2)
+            if uid2 == -1:
+                return -1
             if uid1 > uid2:
                 uid2, uid1 = uid1, uid2
             sql_query = f"select pkey from friendrelation where uid1={uid1} and uid2={uid2};"
             self.cursor.execute(sql_query)
             results = self.cursor.fetchall()
             if len(results) > 0:
-                return True
+                return 1
             else:
-                return False
+                return 0
 
     # sql operation methods end ---
 
@@ -311,10 +337,10 @@ class Server:
         elif msg.action_type == "add_friend":  # transfer a change request
             print("add_friend executing")
             relation_state = self.check_relation(msg.from_name, msg.to_name)
-            if relation_state:
+            if relation_state == 1:
                 new_msg = ms.Message(msg.to_name, msg.from_name, "friend_respond", "duplicate")
                 rs.MySocketClient.custom_send(sock, new_msg)
-            else:
+            elif relation_state == 0:
                 state = self.check_online(msg.to_name)
                 publickey = self.fetch_rsa_table(msg.from_name)
                 new_msg = ms.Message(msg.from_name, msg.to_name, "change", publickey+"___"+msg.content)
@@ -322,8 +348,17 @@ class Server:
                     rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], new_msg)
                 else:
                     self.add_msg_queue(new_msg)
+            else:
+                new_msg = ms.Message(msg.to_name, msg.from_name, "friend_respond", "not_exist")
+                rs.MySocketClient.custom_send(sock, new_msg)
         elif msg.action_type == "add_group":  # transfer a negotiate request
-            pass
+            relation_state = self.check_relation(msg.from_name, msg.to_name)
+            if relation_state == 1:
+                new_msg = ms.Message("system", msg.from_name, "group_respond", "duplicate")
+                rs.MySocketClient.custom_send(sock, new_msg)
+            elif relation_state == -1:
+                pass
+
         elif msg.action_type == "friend_respond":  # transfer to origin
             print("respond received.")
             state = self.check_online(msg.to_name)
