@@ -245,6 +245,22 @@ class Server:
             self.sql_db.commit()
         except:
             self.sql_db.rollback()
+
+    def check_relation(self, name1, name2):
+        if name2[0] == "(":
+            pass
+        else:
+            uid1, uid2 = self.fetch_uid_pair(name1, name2)
+            if uid1 > uid2:
+                uid2, uid1 = uid1, uid2
+            sql_query = f"select pkey from friendrelation where uid1={uid1} and uid2={uid2};"
+            self.cursor.execute(sql_query)
+            results = self.cursor.fetchall()
+            if len(results) > 0:
+                return True
+            else:
+                return False
+
     # sql operation methods end ---
 
     def remove_sock(self, sock):
@@ -294,13 +310,18 @@ class Server:
                 self.add_msg_queue(msg)
         elif msg.action_type == "add_friend":  # transfer a change request
             print("add_friend executing")
-            state = self.check_online(msg.to_name)
-            publickey = self.fetch_rsa_table(msg.from_name)
-            new_msg = ms.Message(msg.from_name, msg.to_name, "change", publickey+"___"+msg.content)
-            if state:
-                rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], new_msg)
+            relation_state = self.check_relation(msg.from_name, msg.to_name)
+            if relation_state:
+                new_msg = ms.Message(msg.to_name, msg.from_name, "friend_respond", "duplicate")
+                rs.MySocketClient.custom_send(sock, new_msg)
             else:
-                self.add_msg_queue(new_msg)
+                state = self.check_online(msg.to_name)
+                publickey = self.fetch_rsa_table(msg.from_name)
+                new_msg = ms.Message(msg.from_name, msg.to_name, "change", publickey+"___"+msg.content)
+                if state:
+                    rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], new_msg)
+                else:
+                    self.add_msg_queue(new_msg)
         elif msg.action_type == "add_group":  # transfer a negotiate request
             pass
         elif msg.action_type == "friend_respond":  # transfer to origin

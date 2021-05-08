@@ -44,12 +44,14 @@ class Client:
         self.login_blank = tk.Label(self.login_frame, text="")
 
         # chat window initialize
+        self.current_label_var = tk.StringVar()
+        self.current_label_var.set("Welcome to ICS Chat!")
 
         self.tool_frame = tk.Frame(self.root_window)
         self.chat_back_button = tk.Button(self.tool_frame, text="Quit", command=self.logout_request, width=20)
         self.time_button = tk.Button(self.tool_frame, text="Time", command=self.server_time_request, width=10)
         self.poem_button = tk.Button(self.tool_frame, text="Poem", command=self.poem_request, width=10)
-        self.current_label = tk.Label(self.tool_frame, text="Welcome to ICS Chat!", width=40)
+        self.current_label = tk.Label(self.tool_frame, textvariable=self.current_label_var, width=40)
 
         self.chat_back_button.grid(row=0, column=0, sticky=tk.W)
         self.time_button.grid(row=0, column=1, sticky=tk.W)
@@ -140,14 +142,17 @@ class Client:
             # update relation listbox
             # notice user success
             print("respond received,", msg.content)
-            keys = msg.content.split('___')
-            # from_rsa_public_key = keys[0].encode('utf-8')
-            encrypted_aes_key = keys[0]
-            signature = keys[1]
-            from_rsa_public_key = enc.ClientEncryptor.any_rsa_instance(self.encrypt_machine.rsa_keyring[msg.from_name])
-            self.encrypt_machine.negotiate_aes(msg.from_name, from_rsa_public_key, encrypted_aes_key, signature)
-            self.refresh_relation(self.relation_origin + [msg.from_name])
-            self.notification(self.root_window, "Adding a friend successfully!")
+            if msg.content == "duplicate":
+                self.notification(self.root_window, msg.from_name + " has already been your friend.")
+            else:
+                keys = msg.content.split('___')
+                # from_rsa_public_key = keys[0].encode('utf-8')
+                encrypted_aes_key = keys[0]
+                signature = keys[1]
+                from_rsa_public_key = enc.ClientEncryptor.any_rsa_instance(self.encrypt_machine.rsa_keyring[msg.from_name])
+                self.encrypt_machine.negotiate_aes(msg.from_name, from_rsa_public_key, encrypted_aes_key, signature)
+                self.refresh_relation(self.relation_origin + [msg.from_name])
+                self.notification(self.root_window, "Adding a friend successfully!")
         elif msg.action_type == "group_respond":
             if msg.content == "new":
                 # update relation listbox
@@ -220,8 +225,6 @@ class Client:
         new_username = tk.StringVar()
         new_password = tk.StringVar()
 
-        registering = lambda: self.register_request(new_username.get(), new_password.get())
-
         register_alert = tk.Label(register_pop_up, text="User does not exist. Please register.")
 
         new_username_label = tk.Label(register_pop_up, text="Username: ")
@@ -229,6 +232,11 @@ class Client:
 
         new_username_entry = tk.Entry(register_pop_up, textvariable=new_username)
         new_password_entry = tk.Entry(register_pop_up, textvariable=new_password, show="*")
+
+        def registering():
+            self.register_request(new_username.get(), new_password.get())
+            new_password_entry.delete(0, 'end')
+            new_username_entry.delete(0, 'end')
 
         register_button = tk.Button(register_pop_up, text="Register", command=registering)
         register_back_button = tk.Button(register_pop_up, text="Back", command=register_pop_up.destroy)
@@ -242,8 +250,8 @@ class Client:
         new_password_label.pack()
         new_password_entry.pack()
         register_blank.pack()
-        register_button.pack()
-        register_back_button.pack()
+        register_button.pack(side=tk.RIGHT)
+        register_back_button.pack(side=tk.RIGHT)
 
     @staticmethod
     def start_thread(loop_func):
@@ -327,13 +335,16 @@ class Client:
             return False, ""
 
     def disconnect(self):
-        if len(self.relations_list.curselection()) == 0:
+        print("disconnect", self.current_target)
+        if self.current_target == "":
             return
-        current_relation = self.relation_origin[self.relations_list.curselection()[0]]
+        current_relation = self.current_target
         msg = ms.Message(self.username.get(), current_relation, "disconnect", "")
         self.socket_machine.send_request(msg)
         self.relation_origin.remove(current_relation)
         self.refresh_relation(self.relation_origin)
+        if current_relation[0] == '(':
+            del self.encrypt_machine.rsa_keyring[current_relation]
 
     def register_request_server(self, username, password):
         msg = ms.Message(username, "system", "register", password)
@@ -362,6 +373,7 @@ class Client:
         self.login_frame.destroy()
 
     def chat_window(self):
+        self.current_label_var.set("Welcome to ICS Chat, " + self.username.get() + "!")
         self.tool_frame.pack(pady=10, padx=10, anchor='nw')
         self.content_frame.pack(pady=10, padx=10, anchor='s')
 
@@ -371,6 +383,7 @@ class Client:
             print(current_relation)
             new_list = self.ms_indexer.get_message_list(current_relation)
             self.refresh_message(new_list)
+            self.current_target = current_relation
             print(new_list)
             print("event called.")
         else:
@@ -448,9 +461,9 @@ class Client:
 
     def add_group_request(self, name):
         print("group request called")
-        encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack()  # protocol: extract signature, and make it a tuple when receving.
-        attachment = encrypted_aes_key + b"_" + signature[0]
-        msg = ms.Message(str(self.username.get()), name, "add_group", attachment)
+        # encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack()  # protocol: extract signature, and make it a tuple when receving.
+        # attachment = encrypted_aes_key + b"_" + signature[0]
+        msg = ms.Message(str(self.username.get()), name, "add_group", "")
         self.socket_machine.send_request(msg)  # maybe need special port ?
 
     def add_friend(self):  # raise new window
