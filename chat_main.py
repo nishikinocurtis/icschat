@@ -136,10 +136,16 @@ class Client:
             actual_message = enc.ClientEncryptor.aes_decrypt(bytes(msg.content, 'utf-8'), self.encrypt_machine.keyring[msg.from_name])
             actual_message = actual_message.decode('utf-8')
             display_message = Client.window_message_generator(msg.from_name, actual_message)
-            self.ms_indexer.add_new(msg.from_name, display_message)
-            if len(self.relations_list.curselection()) > 0\
-               and msg.from_name == self.relation_origin[self.relations_list.curselection()[0]]:
-                self.update_message(display_message)
+            if msg.to_name == self.username.get():
+                self.ms_indexer.add_new(msg.from_name, display_message)
+                if len(self.relations_list.curselection()) > 0 \
+                        and msg.from_name == self.relation_origin[self.relations_list.curselection()[0]]:
+                    self.update_message(display_message)
+            else:
+                self.ms_indexer.add_new(msg.to_name, display_message)
+                if len(self.relations_list.curselection()) > 0 \
+                        and msg.to_name == self.relation_origin[self.relations_list.curselection()[0]]:
+                    self.update_message(display_message)
         elif msg.action_type == "friend_respond":
             # negotiate and save sender's aes128 key
             # update relation listbox
@@ -162,16 +168,18 @@ class Client:
                     del self.encrypt_machine.rsa_keyring[msg.from_name]  # security
         elif msg.action_type == "group_respond":
             if msg.from_name == "system":
-                if msg.content == "new":
+                if msg.content == "not_exist":
                     # update relation listbox
                     # notice user creating a group
+                    self.refresh_relation(self.relation_origin + [msg.to_name])
+                    self.notification(self.root_window, "Group doesn't Exist. Created.")
                     pass
                 elif msg.content == "duplicate":
                     self.notification(self.root_window, "You have already been in " + msg.from_name)
                 elif msg.content == "waiting":
                     self.notification(self.root_window, "Success. Please waiting for fetching keys.")
                 elif msg.content == "finished":
-                    self.notification(self.root_window, "Finished, please enroll again.")
+                    self.notification(self.root_window, "Fetching keys finished, please enroll again.")
                 elif msg.content == "success":
                     # all processes finished, refresh GUI.
                     self.refresh_relation(self.relation_origin + [msg.to_name])
@@ -512,6 +520,7 @@ class Client:
 
     def add_group_request(self, name):
         print("group request called")
+        name = name + "(Group)"
         if name in self.encrypt_machine.rsa_keyring.keys():
             # msg = ms.Message((str(self.username.get()), name, "add_group", "second_trial"))
             # self.socket_machine.send_request(msg)

@@ -311,6 +311,16 @@ class Server:
         except:
             self.sql_db.rollback()
 
+    def new_group(self, username, name):
+        uid, uid2 = self.fetch_uid_pair(username, "")
+        create = f"insert into groupinfo (creatorid, emptystate, groupname) values ({uid}, 0, \'{name}\')"
+        try:
+            self.cursor.execute(create)
+            self.sql_db.commit()
+        except:
+            self.sql_db.rollback()
+        self.enroll(username, name)
+
     # sql operation methods end ---
 
     def remove_sock(self, sock):
@@ -353,11 +363,20 @@ class Server:
             new_msg = ms.Message(msg.from_name, msg.to_name, "fetch_key", rsa_key)
             rs.MySocketClient.custom_send(sock, new_msg)
         elif msg.action_type == "exchange":  # transfer
-            state = self.check_online(msg.to_name)
-            if state:
-                rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], msg)
+            if msg.to_name[0] == "(":
+                members = self.get_group_members(msg.to_name)
+                for member in members:
+                    state = self.check_online(msg.to_name)
+                    if state:
+                        rs.MySocketClient.custom_send(self.logged_name2sock[member], msg)
+                    else:
+                        self.add_msg_queue(msg)
             else:
-                self.add_msg_queue(msg)
+                state = self.check_online(msg.to_name)
+                if state:
+                    rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], msg)
+                else:
+                    self.add_msg_queue(msg)
         elif msg.action_type == "add_friend":  # transfer a change request
             print("add_friend executing")
             relation_state = self.check_relation(msg.from_name, msg.to_name)
@@ -382,7 +401,8 @@ class Server:
                     new_msg = ms.Message("system", msg.from_name, "group_respond", "duplicate")
                     rs.MySocketClient.custom_send(sock, new_msg)
                 elif relation_state == -1:
-                    new_msg = ms.Message("system", msg.from_name, "group_respond", "not_exist")
+                    new_msg = ms.Message("system", msg.to_name, "group_respond", "not_exist")
+                    self.new_group(msg.from_name, msg.to_name)
                     rs.MySocketClient.custom_send(sock, new_msg)
                 elif relation_state == 0:
                     all_members = self.get_group_members(msg.to_name)
