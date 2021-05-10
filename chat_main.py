@@ -226,6 +226,9 @@ class Client:
         elif msg.action_type == "fetch_key":
             self.encrypt_machine.rsa_keyring[msg.to_name] = bytes(msg.content, 'utf-8')
             print(self.encrypt_machine.rsa_keyring[msg.to_name])
+        elif msg.action_type == "error" or msg.action_type == "empty":
+            self.notification(self.root_window, "Server error, please quit.")
+            self.state.set(csm.USER_OFFLINE)
 
     def refresh_event(self):
         current_relation = self.relation_origin[self.relations_list.curselection()[0]]
