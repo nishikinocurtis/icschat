@@ -26,7 +26,7 @@ class MySocketClient:
             text = self.socket.recv(self.SIZE_SPEC - len(size)).decode()
             if not text:
                 print('disconnected')
-                return ''
+                return ms.Message(action_type="error")
             size += text
         size = int(size)
 
