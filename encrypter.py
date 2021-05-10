@@ -37,6 +37,7 @@ class ClientEncryptor:
         try:
             self.load_key()
         except FileNotFoundError as err:
+            print("no preset key, try generating.")
             self.generate_key()
 
     def get_rsa_by_name(self, name):
