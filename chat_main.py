@@ -533,7 +533,7 @@ class Client:
                     rsa_public_key = enc.ClientEncryptor.any_rsa_instance(self.encrypt_machine.get_rsa_by_name(member))
                     encrypted_aes_key, signature = self.encrypt_machine.create_negotiate_pack(rsa_public_key)
                     attachment = encrypted_aes_key + "___" + signature
-                    msg = ms.Message(name, member, "add_group", attachment)
+                    msg = ms.Message(self.username.get(), member, "add_group", attachment)
                     self.socket_machine.send_request(msg)
             msg = ms.Message(self.username.get(), name, "add_group", "second_trial")
             self.socket_machine.send_request(msg)

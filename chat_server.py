@@ -185,7 +185,7 @@ class Server:
         relation_query = f"""select grouprelation.gid, groupinfo.groupname from grouprelation
                              left join groupinfo
                              on grouprelation.gid = groupinfo.gid
-                             where grouprelation.gid = {results[0][0]};"""
+                             where grouprelation.uid = {results[0][0]};"""
         self.cursor.execute(relation_query)
         group_list = self.cursor.fetchall()
         if len(group_list) > 0:
@@ -316,10 +316,13 @@ class Server:
         gid = self.fetch_gid(name)
         uid, uid2 = self.fetch_uid_pair(username, "")
         inserting = f"insert into grouprelation (uid, gid) values ({uid}, {gid});"
+        print(f"enrolling uid={uid}, gid={gid}.")
         try:
             self.cursor.execute(inserting)
             self.sql_db.commit()
-        except:
+            print("enrolling succeed.")
+        except Exception as err:
+            print("Enrollment failed,", err)
             self.sql_db.rollback()
 
     def new_group(self, username, name):
@@ -330,7 +333,9 @@ class Server:
             self.sql_db.commit()
         except:
             self.sql_db.rollback()
+        print("new group")
         self.enroll(username, name)
+        print("enrolled.")
 
     # sql operation methods end ---
 
@@ -376,7 +381,10 @@ class Server:
         elif msg.action_type == "exchange":  # transfer
             if msg.to_name[0] == "(":
                 members = self.get_group_members(msg.to_name)
+                print("GROUP EXCHANGING")
                 for member in members:
+                    if member == msg.from_name:
+                        continue
                     state = self.check_online(member)
                     if state:
                         rs.MySocketClient.custom_send(self.logged_name2sock[member], msg)
@@ -421,7 +429,7 @@ class Server:
                     rs.MySocketClient.custom_send(sock, new_msg)
                     for member in all_members:
                         rsa_key = self.fetch_rsa_table(member)
-                        new_msg = ms.Message(member, msg.from_name, "fetch_key", rsa_key)
+                        new_msg = ms.Message(msg.from_name, member, "fetch_key", rsa_key)
                         rs.MySocketClient.custom_send(sock, new_msg)
                     member_list = ""
                     for member in all_members:
@@ -437,7 +445,7 @@ class Server:
                 rs.MySocketClient.custom_send(sock, new_msg)
             else:
                 rsa_key = self.fetch_rsa_table(msg.from_name)
-                new_msg = ms.Message(self.logged_sock2name[sock], msg.from_name, "negotiate", rsa_key + "___" + msg.content)  # username, group name, negotiate pack.
+                new_msg = ms.Message(msg.from_name, msg.to_name, "negotiate", rsa_key + "___" + msg.content)  # username, group name, negotiate pack.
                 state = self.check_online(msg.to_name)
                 if state:
                     self.socket_machine.custom_send(self.logged_name2sock[msg.to_name], new_msg)
@@ -455,7 +463,7 @@ class Server:
             self.create_relation(msg.from_name, msg.to_name)
             print("relation added.")
         elif msg.action_type == "key":  # transfer to origin
-            pass
+            rs.MySocketClient.custom_send(self.logged_name2sock[msg.to_name], msg)
         elif msg.action_type == "fetch_key":
             rsa = self.fetch_rsa_table(msg.to_name)
             new_msg = ms.Message(msg.from_name, msg.to_name, msg.action_type, rsa)
