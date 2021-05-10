@@ -520,7 +520,7 @@ class Client:
 
     def add_group_request(self, name):
         print("group request called")
-        name = name + "(Group)"
+        name = "(Group)" + name
         if name in self.encrypt_machine.rsa_keyring.keys():
             # msg = ms.Message((str(self.username.get()), name, "add_group", "second_trial"))
             # self.socket_machine.send_request(msg)
