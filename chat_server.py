@@ -291,10 +291,10 @@ class Server:
     def get_group_members(self, name):
         members = []
         gid = self.fetch_gid(name)
-        sql_query = f"""select grouprelation.uid, users.username
-                        from grouprelation where gid={gid}
+        sql_query = f"""select grouprelation.uid, users.username from grouprelation
                         left join users
-                        on grouprelation.uid=users.uid;"""
+                        on grouprelation.uid=users.uid
+                        where grouprelation.gid={gid};"""
         self.cursor.execute(sql_query)
         results = self.cursor.fetchall()
         for member in results:
