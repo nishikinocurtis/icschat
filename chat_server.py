@@ -181,7 +181,18 @@ class Server:
                 relation_string += relation_list[i][0]
                 relation_string += ","
         # relation_list should be added
-        relation_string += ""
+        # relation_string += "" --- group part ---
+        relation_query = f"""select grouprelation.gid, groupinfo.groupname from grouprelation" \
+                             left join groupinfo
+                             on grouprelation.gid = groupinfo.gid
+                             where grouprelation.gid = {results[0][0]};"""
+        self.cursor.execute(relation_query)
+        group_list = self.cursor.fetchall()
+        if len(group_list) > 0:
+            n = len(group_list)
+            for i in range(n):
+                relation_string += group_list[i][1]
+                relation_string += ","
         return relation_string
 
     def add_publickey(self, msg):
