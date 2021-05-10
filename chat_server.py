@@ -366,7 +366,7 @@ class Server:
             if msg.to_name[0] == "(":
                 members = self.get_group_members(msg.to_name)
                 for member in members:
-                    state = self.check_online(msg.to_name)
+                    state = self.check_online(member)
                     if state:
                         rs.MySocketClient.custom_send(self.logged_name2sock[member], msg)
                     else:
