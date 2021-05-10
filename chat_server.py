@@ -337,6 +337,16 @@ class Server:
         self.enroll(username, name)
         print("enrolled.")
 
+    def quit_group(self, username, name):
+        uid, uid2 = self.fetch_uid_pair(username, "")
+        gid = self.fetch_gid(name)
+        deleting = f"delete from grouprelation where uid={uid} and gid={gid};"
+        try:
+            self.cursor.execute(deleting)
+            self.sql_db.commit()
+        except:
+            self.sql_db.rollback()
+
     # sql operation methods end ---
 
     def remove_sock(self, sock):
@@ -472,7 +482,7 @@ class Server:
             self.logout(sock, msg.from_name)
         elif msg.action_type == "disconnect":
             if msg.to_name[0] == "(":
-                pass
+                self.quit_group(msg.from_name, msg.to_name)
             else:
                 state = self.check_online(msg.to_name)
                 self.delete_relation(msg.from_name, msg.to_name)
