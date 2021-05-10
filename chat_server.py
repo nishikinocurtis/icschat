@@ -182,7 +182,7 @@ class Server:
                 relation_string += ","
         # relation_list should be added
         # relation_string += "" --- group part ---
-        relation_query = f"""select grouprelation.gid, groupinfo.groupname from grouprelation" \
+        relation_query = f"""select grouprelation.gid, groupinfo.groupname from grouprelation
                              left join groupinfo
                              on grouprelation.gid = groupinfo.gid
                              where grouprelation.gid = {results[0][0]};"""
